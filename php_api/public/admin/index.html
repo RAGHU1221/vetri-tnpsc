@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>வெற்றி TNPSC — Admin Import</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">
+async function addCA() {
+  const body = {
+    ca_date: $('caDate').value.trim(),
+    title_ta: $('caTitleTa').value.trim(),
+    title_en: $('caTitleEn').value.trim(),
+    content_ta: $('caContentTa').value.trim(),
+    content_en: $('caContentEn').value.trim(),
+    category: $('caCategory').value.trim() || 'general',
+    is_tn: $('caTn').checked ? 1 : 0,
+  };
+  if (!body.ca_date || !body.title_ta) {
+    $('caMsg').innerHTML = '<div class="err">Date & தமிழ் தலைப்பு required</div>'; return;
+  }
+  try {
+    await api('/api/admin/ca', { method: 'POST', body: JSON.stringify(body) });
+    $('caMsg').innerHTML = '<div class="ok-msg">✅ சேர்க்கப்பட்டது!</div>';
+    ['caTitleTa','caTitleEn','caContentTa','caContentEn'].forEach(id => $(id).value = '');
+  } catch (e) {
+    $('caMsg').innerHTML = '<div class="err">Error: ' + e.message + '</div>';
+  }
+}
+</script>
+<style>
+:root{--ink:#14213D;--gold:#C9971C;--verm:#B33A2B;--leaf:#2E7D4F;--paper:#FBF7EE}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Noto Sans Tamil','Segoe UI',sans-serif}
+body{background:var(--paper);color:var(--ink);min-height:100vh}
+.bar{background:var(--ink);color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+.bar b{font-size:1.1rem}.bar b span{color:var(--gold)}
+.wrap{max-width:960px;margin:0 auto;padding:18px}
+.card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 10px rgba(20,33,61,.08);margin-bottom:16px}
+h2{font-size:1.05rem;margin-bottom:10px}
+input,button{font-size:1rem;border-radius:9px}
+input[type=text],input[type=password]{width:100%;padding:11px;border:1.5px solid #E0D8C4;margin-bottom:10px}
+button{background:var(--leaf);color:#fff;border:none;padding:12px 22px;font-weight:700;cursor:pointer;width:100%}
+button:disabled{background:#A8B5A8;cursor:not-allowed}
+button.sec{background:var(--ink)}
+.drop{border:2.5px dashed var(--gold);border-radius:12px;padding:34px;text-align:center;cursor:pointer;background:#FFFDF6}
+.drop.on{background:#FFF6DC;border-color:var(--verm)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:12px 0}
+.stat{background:var(--paper);border-radius:9px;padding:10px;text-align:center}
+.stat b{font-size:1.4rem;display:block}
+.stat.ok b{color:var(--leaf)}.stat.up b{color:#3E6FB0}.stat.sk b{color:var(--verm)}
+.prog{height:14px;background:#EDE6D4;border-radius:7px;overflow:hidden;margin:10px 0}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--leaf),var(--gold));transition:width .3s}
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:10px}
+th{background:var(--ink);color:#fff;padding:7px;text-align:left}
+td{padding:7px;border-bottom:1px solid #EFE9DA;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.err{background:#FDECEA;border-left:4px solid var(--verm);padding:9px 12px;border-radius:0 8px 8px 0;font-size:.85rem;margin-top:8px;max-height:180px;overflow:auto}
+.ok-msg{background:#EDF7F0;border-left:4px solid var(--leaf);padding:9px 12px;border-radius:0 8px 8px 0;font-size:.9rem;margin-top:8px}
+.hide{display:none}
+.badge{background:var(--gold);color:var(--ink);border-radius:12px;padding:2px 10px;font-size:.75rem;font-weight:700}
+</style>
+</head>
+<body>
+<div class="bar"><b>வெற்றி <span>TNPSC</span> · Admin Import</b><span id="who"></span></div>
+<div class="wrap">
+
+  <!-- LOGIN -->
+  <div class="card" id="loginCard">
+    <h2>🔐 Admin உள்நுழைவு</h2>
+    <input type="text" id="mobile" placeholder="கைபேசி எண் / Mobile" maxlength="10">
+    <input type="password" id="password" placeholder="கடவுச்சொல் / Password">
+    <button onclick="login()">உள்நுழை / Login</button>
+    <div class="err hide" id="loginErr"></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="card hide" id="statsCard">
+    <h2>📊 Question Bank நிலவரம்</h2>
+    <div class="stats" id="statsGrid"></div>
+  </div>
+
+  <!-- IMPORT -->
+  <div class="card hide" id="importCard">
+    <h2>📥 Excel Import <span class="badge">import_template.xlsx format</span></h2>
+    <div class="drop" id="drop" onclick="document.getElementById('file').click()">
+      📄 Excel file-a inga drag pannunga<br>illa click panni select pannunga
+      <input type="file" id="file" accept=".xlsx,.xls" class="hide">
+    </div>
+    <div id="preview" class="hide">
+      <div class="stats">
+        <div class="stat"><b id="pvTotal">0</b>Total rows</div>
+        <div class="stat ok"><b id="pvValid">0</b>Valid</div>
+        <div class="stat sk"><b id="pvInvalid">0</b>Invalid</div>
+      </div>
+      <div style="overflow-x:auto"><table id="pvTable"></table></div>
+      <div class="err hide" id="pvErrors"></div>
+      <br>
+      <button id="uploadBtn" onclick="upload()">🚀 Import தொடங்கு (valid rows mattum)</button>
+      <div class="prog hide" id="prog"><i id="progBar"></i></div>
+      <div id="result"></div>
+    </div>
+  </div>
+  <!-- CURRENT AFFAIRS -->
+  <div class="card hide" id="caCard">
+    <h2>📰 நடப்பு நிகழ்வு சேர் (Current Affairs)</h2>
+    <input type="text" id="caDate" placeholder="Date (YYYY-MM-DD)">
+    <input type="text" id="caTitleTa" placeholder="தலைப்பு (தமிழ்) *">
+    <input type="text" id="caTitleEn" placeholder="Title (English)">
+    <input type="text" id="caContentTa" placeholder="விவரம் (தமிழ்)">
+    <input type="text" id="caContentEn" placeholder="Content (English)">
+    <input type="text" id="caCategory" placeholder="Category: tn/national/international/science/sports/awards/schemes">
+    <label style="display:block;margin:6px 0 10px"><input type="checkbox" id="caTn"> தமிழ்நாடு specific (TN priority ⭐)</label>
+    <button onclick="addCA()">➕ சேர் / Add</button>
+    <div id="caMsg"></div>
+  </div>
+
+</div>
+
+<script>
+const API = location.origin; // same domain-la host panna; illa na Render URL hardcode pannunga
+let token = null, validRows = [], fileName = '';
+
+const REQUIRED = ['question_ta','option_a_ta','option_b_ta','option_c_ta','option_d_ta','correct_option'];
+const $ = id => document.getElementById(id);
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json',
+               ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.status);
+  return data;
+}
+
+async function login() {
+  $('loginErr').classList.add('hide');
+  try {
+    const d = await api('/api/auth/login', { method: 'POST',
+      body: JSON.stringify({ mobile: $('mobile').value, password: $('password').value }) });
+    token = d.token;
+    $('who').textContent = d.user.name;
+    // admin check via stats call
+    await loadStats();
+    $('loginCard').classList.add('hide');
+    $('statsCard').classList.remove('hide');
+    $('importCard').classList.remove('hide');
+    $('caCard').classList.remove('hide');
+    $('caDate').value = new Date().toISOString().slice(0,10);
+  } catch (e) {
+    $('loginErr').textContent = e.message === 'Admin only'
+      ? 'Indha account admin illa. migration_phase2.sql-la is_admin=1 set pannunga.'
+      : 'Login failed: ' + e.message;
+    $('loginErr').classList.remove('hide');
+  }
+}
+
+async function loadStats() {
+  const s = await api('/api/admin/stats');
+  $('statsGrid').innerHTML = `
+    <div class="stat"><b>${s.totals.questions}</b>கேள்விகள்</div>
+    <div class="stat"><b>${s.totals.users}</b>Users</div>
+    <div class="stat"><b>${s.totals.imports}</b>Imports</div>` +
+    s.by_subject.map(x => `<div class="stat"><b>${x.total}</b>${x.subject}<br><small>🔥 ${x.important}</small></div>`).join('');
+}
+
+// --- File handling (CSC MIS pattern: SheetJS browser-side parse) ---
+$('file').addEventListener('change', e => e.target.files[0] && parseFile(e.target.files[0]));
+const drop = $('drop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('on'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('on'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('on');
+  e.dataTransfer.files[0] && parseFile(e.dataTransfer.files[0]);
+});
+
+function parseFile(file) {
+  fileName = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+    const ws = wb.Sheets['Question Bank'] || wb.Sheets['Questions Import'] || wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    // normalise headers: "correct_option (A/B/C/D)" -> "correct_option"
+    const rows = raw.map((r, i) => {
+      const o = { _row: i + 2 };
+      for (const k in r) o[k.split(' ')[0].trim()] = String(r[k]).trim();
+      return o;
+    });
+    validRows = [];
+    const errors = [];
+    rows.forEach(r => {
+      const missing = REQUIRED.filter(k => !r[k]);
+      const co = (r.correct_option || '').toUpperCase();
+      if (missing.length) errors.push(`Row ${r._row}: missing ${missing.join(', ')}`);
+      else if (!'ABCD'.includes(co) || co.length !== 1) errors.push(`Row ${r._row}: correct_option must be A/B/C/D`);
+      else { r.correct_option = co; validRows.push(r); }
+    });
+    $('pvTotal').textContent = rows.length;
+    $('pvValid').textContent = validRows.length;
+    $('pvInvalid').textContent = errors.length;
+    $('pvTable').innerHTML = '<tr><th>#</th><th>subject</th><th>question_ta</th><th>correct</th><th>years</th></tr>' +
+      validRows.slice(0, 8).map(r =>
+        `<tr><td>${r._row}</td><td>${r.subject}</td><td>${r.question_ta}</td><td>${r.correct_option}</td><td>${r.years_asked || ''}</td></tr>`).join('') +
+      (validRows.length > 8 ? `<tr><td colspan="5">… +${validRows.length - 8} more</td></tr>` : '');
+    const pe = $('pvErrors');
+    if (errors.length) { pe.innerHTML = errors.slice(0, 30).join('<br>'); pe.classList.remove('hide'); }
+    else pe.classList.add('hide');
+    $('preview').classList.remove('hide');
+    $('result').innerHTML = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// --- Chunked upload (InfinityFree/Render safe: 50 rows per chunk) ---
+async function upload() {
+  if (!validRows.length) return;
+  $('uploadBtn').disabled = true;
+  $('prog').classList.remove('hide');
+  const CHUNK = 50;
+  let inserted = 0, updated = 0, skipped = 0, errors = [];
+  for (let i = 0; i < validRows.length; i += CHUNK) {
+    try {
+      const d = await api('/api/admin/import/chunk', { method: 'POST',
+        body: JSON.stringify({ rows: validRows.slice(i, i + CHUNK) }) });
+      inserted += d.inserted; updated += d.updated; skipped += d.skipped;
+      errors.push(...d.errors);
+    } catch (e) {
+      errors.push(`Chunk ${i / CHUNK + 1} failed: ${e.message}`);
+      skipped += Math.min(CHUNK, validRows.length - i);
+    }
+    $('progBar').style.width = Math.round(Math.min(i + CHUNK, validRows.length) / validRows.length * 100) + '%';
+  }
+  await api('/api/admin/import/log', { method: 'POST',
+    body: JSON.stringify({ filename: fileName, total: validRows.length, inserted, updated, skipped, errors }) })
+    .catch(() => {});
+  $('result').innerHTML = `<div class="ok-msg">✅ முடிந்தது! Inserted: <b>${inserted}</b> · Updated: <b>${updated}</b> · Skipped: <b>${skipped}</b></div>` +
+    (errors.length ? `<div class="err">${errors.slice(0, 30).join('<br>')}</div>` : '');
+  $('uploadBtn').disabled = false;
+  loadStats();
+}
+</script>
+</body>
+</html>
