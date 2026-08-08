@@ -10,12 +10,16 @@ flutter_app/   Flutter app (Android)
 
 ## Backend deploy (Render + Aiven) — VIVASAYI same pattern
 1. Aiven-la new MySQL DB create pannunga: `vetri_tnpsc`
-2. `php_api/schema.sql` run pannunga (Aiven console query editor)
+2. `php_api/schema.sql` + all migrations run pannunga (Aiven console query editor) — see Full Deploy Checklist below
 3. GitHub-la repo push pannunga
-4. Render → New Web Service → repo select → Root Directory: `php_api` → Docker
-5. Environment variables set pannunga (`.env.example` paarunga): DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS, DB_SSL=true, JWT_SECRET
-6. Deploy! → `https://vetri-tnpsc.onrender.com` test: GET `/` → `{"app":"Vetri TNPSC API","status":"ok"}`
-7. Seed data: local-la `php seed_loader.php` run pannunga (env vars set panni) — 120 questions DB-la load aagum
+4. Render deploy:
+   - **Blueprint:** New → Blueprint → repo select → `render.yaml` reads automatically
+   - **Manual:** New Web Service → repo select → Root Directory: `php_api` → Docker
+5. Environment variables set pannunga (`.env.example` paarunga): DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS, DB_SSL=true, JWT_SECRET, NVIDIA_API_KEY, CRON_SECRET
+6. Deploy! → `https://vetri-tnpsc.onrender.com` test:
+   - `GET /` → `{"app":"Vetri TNPSC API","status":"ok"}`
+   - `GET /api/subjects` → syllabus JSON (Apache rewrite via `public/.htaccess`)
+7. Seed data: local-la `php seed_loader.php` + `php guide_seed_loader.php` run pannunga (env vars set panni) — 216 questions + 14 guides DB-la load aagum
 
 ## API endpoints (Phase 1)
 | Method | Path | Auth | Description |
@@ -96,11 +100,12 @@ flutter_app/   Flutter app (Android)
 
 ## 🎉 PROJECT COMPLETE — All 6 Phases
 Full deploy checklist:
-1. Aiven DB → schema.sql + migration_phase2..6.sql (5 migrations)
-2. Render env: DB_*, JWT_SECRET, NVIDIA_API_KEY
-3. Admin set: UPDATE users SET is_admin=1 WHERE mobile='...'
-4. Admin panel-la tnpsc_question_bank_v1.xlsx import (120 Q)
-5. flutter create . → AndroidManifest permissions → APK build
+1. Aiven DB → schema.sql + all 9 migrations (see Full Deploy Checklist below)
+2. Render: use `render.yaml` Blueprint or manual Docker deploy (root: `php_api`)
+3. Render env: DB_*, JWT_SECRET, NVIDIA_API_KEY, CRON_SECRET
+4. Admin set: UPDATE users SET is_admin=1 WHERE mobile='...'
+5. Seed loaders: `php seed_loader.php`, `php guide_seed_loader.php`
+6. flutter create . → AndroidManifest permissions → APK build
 
 ## 🎨 UI Polish — Professional Button System
 - `lib/src/ui/widgets/vetri_buttons.dart` — reusable design system:
@@ -203,14 +208,21 @@ Full deploy checklist:
 ## 🚀 Full Deploy Checklist
 1. Aiven MySQL → run **all migrations in order**:
    `schema.sql`, `migration_phase2.sql`, `migration_phase3.sql`, `migration_phase4.sql`,
-   `migration_phase4b.sql`, `migration_phase1c_format.sql`, `migration_phase_guide.sql`
-2. Render env vars: `DB_HOST/PORT/NAME/USER/PASS/SSL`, `JWT_SECRET`, `NVIDIA_API_KEY`, `CRON_SECRET`
-3. Admin: `UPDATE users SET is_admin=1 WHERE mobile='YOUR_MOBILE'`
-4. Run seed loaders locally (env vars set): `php seed_loader.php`, `php guide_seed_loader.php`
-5. cron-job.org → daily hit `/api/cron/fetch-ca?token=...` at 6:30 AM IST
-6. Flutter: `flutter create .` → add AndroidManifest permissions (notifications) →
+   `migration_phase4b.sql`, `migration_phase1c_format.sql`, `migration_phase5.sql`,
+   `migration_phase6.sql`, `migration_phase_guide.sql`, `migration_phase_guide2.sql`
+2. Render deploy (pick one):
+   - **Blueprint (recommended):** Render → New → Blueprint → connect repo → `render.yaml` auto-configures service
+   - **Manual:** Render → New Web Service → repo → Root Directory: `php_api` → Docker
+3. Render env vars: `DB_HOST/PORT/NAME/USER/PASS/SSL`, `JWT_SECRET`, `NVIDIA_API_KEY`, `CRON_SECRET`
+   (Blueprint auto-generates `JWT_SECRET` and `CRON_SECRET`; set DB + NVIDIA keys manually)
+4. Health check: `GET https://vetri-tnpsc.onrender.com/` → `{"app":"Vetri TNPSC API","status":"ok"}`
+   Also test: `GET /api/subjects` → JSON syllabus tree (requires `.htaccess` rewrite — included in repo)
+5. Admin: `UPDATE users SET is_admin=1 WHERE mobile='YOUR_MOBILE'`
+6. Run seed loaders locally (env vars set): `php seed_loader.php`, `php guide_seed_loader.php`
+7. cron-job.org → daily hit `/api/cron/fetch-ca?token=...` at 6:30 AM IST
+8. Flutter: `flutter create .` → add AndroidManifest permissions (notifications) →
    change `MainActivity` to `FlutterFragmentActivity` (biometric fix) → `flutter pub get` → build APK
-7. Admin panel: `https://your-app.onrender.com/admin/` → import `tnpsc_question_bank_v1_verified.xlsx`
+9. Admin panel: `https://vetri-tnpsc.onrender.com/admin/` → import `tnpsc_question_bank_v1_verified.xlsx`
 
 ## Phase 1h ✅ — வழிகாட்டி: 12th-க்குப் பிறகு (After 12th Career Guide)
 - `migration_phase_guide2.sql` run pannunga (adds 'after_12th' to category ENUM)

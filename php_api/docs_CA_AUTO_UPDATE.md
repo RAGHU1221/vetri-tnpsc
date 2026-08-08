@@ -32,7 +32,7 @@ This stops random people from spamming your fetch endpoint.
 ### 3. Test manually first
 Visit in browser (replace with your values):
 ```
-https://your-app.onrender.com/api/cron/fetch-ca?token=YOUR_CRON_SECRET
+https://vetri-tnpsc.onrender.com/api/cron/fetch-ca?token=YOUR_CRON_SECRET
 ```
 Expected response:
 ```json
@@ -46,7 +46,7 @@ if needed (news sites occasionally restructure their RSS paths).
 Use **cron-job.org** (free, reliable, no card needed):
 1. Sign up at https://cron-job.org
 2. Create new cronjob:
-   - URL: `https://your-app.onrender.com/api/cron/fetch-ca?token=YOUR_CRON_SECRET`
+   - URL: `https://vetri-tnpsc.onrender.com/api/cron/fetch-ca?token=YOUR_CRON_SECRET`
    - Schedule: daily, e.g. **6:30 AM IST** (so content is ready before students' morning study)
    - ⚠️ Render free web services sleep after 15 min idle — the *first* cron hit of the
      day may take ~50 sec (cold start) before responding. cron-job.org's default

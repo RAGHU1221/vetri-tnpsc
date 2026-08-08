@@ -1,0 +1,28 @@
+# Render Blueprint — Vetri TNPSC API
+# Dashboard: New → Blueprint → connect repo → Render reads this file
+services:
+  - type: web
+    name: vetri-tnpsc
+    runtime: docker
+    rootDir: php_api
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        value: vetri_tnpsc
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true

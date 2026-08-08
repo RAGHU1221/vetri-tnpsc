@@ -1,0 +1,5 @@
+.env
+.env.*
+!.env.example
+*.md
+docs_CA_AUTO_UPDATE.md
