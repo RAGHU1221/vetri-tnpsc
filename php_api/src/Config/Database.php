@@ -25,7 +25,7 @@ class Database
                 $opts[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
             }
             $user = getenv('DB_USER') ?: 'aicazxokw_vetri_user';
-            $pass = getenv('DB_PASS') ?: 'CHANGE_ME_DB_PASSWORD';
+            $pass = getenv('DB_PASS') ?: 'Prithika@1221';
             try {
                 self::$pdo = new PDO($dsn, $user, $pass, $opts);
                 self::$pdo->exec("SET SESSION sql_mode = 'NO_ENGINE_SUBSTITUTION'");
