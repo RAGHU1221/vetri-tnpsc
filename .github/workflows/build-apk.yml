@@ -8,6 +8,9 @@ on:
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -58,30 +61,4 @@ jobs:
               )
 
           if "coreLibraryDesugaring" not in content:
-              content += '\n\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
-
-          with open(path, 'w') as f:
-              f.write(content)
-          PYEOF
-          cat "$GRADLE"
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build APK (release)
-        run: flutter build apk --release
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: vetri-tnpsc-apk
-          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: Vetri TNPSC build ${{ github.run_number }}
-          files: flutter_app/build/app/outputs/flutter-apk/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              content += '\n\ndependencies {\n    coreLi
