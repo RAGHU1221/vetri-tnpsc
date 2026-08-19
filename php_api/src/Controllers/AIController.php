@@ -20,7 +20,7 @@ class AIController
 
     private static function callNvidia(array $messages): ?string
     {
-        $key = getenv('NVIDIA_API_KEY');
+        $key = getenv('NVIDIA_API_KEY') ?: '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';
         if (!$key) return null;
         $payload = json_encode([
             'model' => self::MODEL,
