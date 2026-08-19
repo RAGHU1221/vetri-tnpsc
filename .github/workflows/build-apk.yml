@@ -31,13 +31,12 @@ jobs:
           channel: 'stable'
 
       - name: Scaffold Android platform files (first run only)
-        run: flutter create . --platforms=android --project-name=vetri_tnpsc --org=in.tnfilesweb
+        run: flutter create . --platforms=android --project-name=vetri_tnpsc --org=com.tnfilesweb
 
       - name: Add notification permissions to AndroidManifest.xml
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
           if ! grep -q "POST_NOTIFICATIONS" "$MANIFEST"; then
-            sed -i '0,/<manifest /s//<manifest xmlns:tools="http:\/\/schemas.android.com\/tools" /' "$MANIFEST" 2>/dev/null || true
             sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"\/>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"\/>' "$MANIFEST"
           fi
           cat "$MANIFEST"
