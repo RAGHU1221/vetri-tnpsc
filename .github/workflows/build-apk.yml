@@ -46,19 +46,26 @@ jobs:
 
       - name: Enable core library desugaring (flutter_local_notifications requirement)
         run: |
-          GRADLE=android/app/build.gradle.kts
-          python3 - "$GRADLE" << 'PYEOF'
-          import sys, re
-          path = sys.argv[1]
-          with open(path) as f:
-              content = f.read()
+          python3 ../.github/scripts/patch_gradle.py android/app/build.gradle.kts
+          cat android/app/build.gradle.kts
 
-          if "isCoreLibraryDesugaringEnabled" not in content:
-              content = content.replace(
-                  "compileOptions {",
-                  "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
-                  1
-              )
+      - name: Get dependencies
+        run: flutter pub get
 
-          if "coreLibraryDesugaring" not in content:
-              content += '\n\ndependencies {\n    coreLi
+      - name: Build APK (release)
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vetri-tnpsc-apk
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Vetri TNPSC build ${{ github.run_number }}
+          files: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
