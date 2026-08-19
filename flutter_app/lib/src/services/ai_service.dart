@@ -8,7 +8,7 @@ class AIService {
           .post('/api/ai/chat', data: {'messages': messages});
       return res.data['reply'] ?? '';
     } on DioException catch (e) {
-      return e.response?.data?['error'] ??
+      return (e.response?.data?['error'] as String?) ??
           'இணைப்பு பிழை — சிறிது நேரம் கழித்து முயற்சிக்கவும்';
     }
   }
@@ -19,7 +19,7 @@ class AIService {
           .post('/api/ai/explain', data: {'question_id': questionId});
       return res.data['reply'] ?? '';
     } on DioException catch (e) {
-      return e.response?.data?['error'] ?? 'இணைப்பு பிழை';
+      return (e.response?.data?['error'] as String?) ?? 'இணைப்பு பிழை';
     }
   }
 }
