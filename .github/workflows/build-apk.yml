@@ -41,6 +41,30 @@ jobs:
           fi
           cat "$MANIFEST"
 
+      - name: Enable core library desugaring (flutter_local_notifications requirement)
+        run: |
+          GRADLE=android/app/build.gradle.kts
+          python3 - "$GRADLE" << 'PYEOF'
+          import sys, re
+          path = sys.argv[1]
+          with open(path) as f:
+              content = f.read()
+
+          if "isCoreLibraryDesugaringEnabled" not in content:
+              content = content.replace(
+                  "compileOptions {",
+                  "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
+                  1
+              )
+
+          if "coreLibraryDesugaring" not in content:
+              content += '\n\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+
+          with open(path, 'w') as f:
+              f.write(content)
+          PYEOF
+          cat "$GRADLE"
+
       - name: Get dependencies
         run: flutter pub get
 
