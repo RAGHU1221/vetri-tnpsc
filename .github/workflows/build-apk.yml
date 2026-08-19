@@ -46,7 +46,7 @@ jobs:
 
       - name: Enable core library desugaring (flutter_local_notifications requirement)
         run: |
-          python3 ../.github/scripts/patch_gradle.py android/app/build.gradle.kts
+          python3 "${{ github.workspace }}/.github/scripts/patch_gradle.py" android/app/build.gradle.kts
           cat android/app/build.gradle.kts
 
       - name: Get dependencies
