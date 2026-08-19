@@ -36,12 +36,16 @@ jobs:
       - name: Scaffold Android platform files (first run only)
         run: flutter create . --platforms=android --project-name=vetri_tnpsc --org=com.tnfilesweb
 
-      - name: Add notification permissions to AndroidManifest.xml
+      - name: Add required permissions + set app name
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
+          if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+            sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"\/>' "$MANIFEST"
+          fi
           if ! grep -q "POST_NOTIFICATIONS" "$MANIFEST"; then
             sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"\/>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"\/>' "$MANIFEST"
           fi
+          sed -i 's/android:label="[^"]*"/android:label="Vetri TNPSC"/' "$MANIFEST"
           cat "$MANIFEST"
 
       - name: Enable core library desugaring (flutter_local_notifications requirement)
