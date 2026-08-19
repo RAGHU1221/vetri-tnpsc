@@ -11,7 +11,7 @@ class AuthService {
       await _api.saveToken(res.data['token']);
       return (true, 'success');
     } on DioException catch (e) {
-      return (false, e.response?.data?['error'] ?? 'இணைப்பு பிழை / Connection error');
+      return (false, (e.response?.data?['error'] as String?) ?? 'இணைப்பு பிழை / Connection error');
     }
   }
 
@@ -22,7 +22,7 @@ class AuthService {
       await _api.saveToken(res.data['token']);
       return (true, 'success');
     } on DioException catch (e) {
-      return (false, e.response?.data?['error'] ?? 'இணைப்பு பிழை / Connection error');
+      return (false, (e.response?.data?['error'] as String?) ?? 'இணைப்பு பிழை / Connection error');
     }
   }
 
