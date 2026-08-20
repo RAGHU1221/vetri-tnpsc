@@ -45,10 +45,11 @@ jobs:
           } > "$MAIN_ACT"
           cat "$MAIN_ACT"
 
-      - name: Patch AndroidManifest.xml for notification permissions (Phase 4 daily quiz reminder)
+      - name: Patch AndroidManifest.xml for notification permissions (Phase 4 daily quiz reminder) and app name
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
           sed -i 's#<manifest xmlns:android="http://schemas.android.com/apk/res/android">#<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"\/>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"\/>\n    <uses-permission android:name="android.permission.INTERNET"\/>#' "$MANIFEST"
+          sed -i 's#android:label="[^"]*"#android:label="Vetri TNPSC"#' "$MANIFEST"
           head -10 "$MANIFEST"
 
       - name: Install dependencies
