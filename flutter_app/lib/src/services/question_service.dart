@@ -59,15 +59,24 @@ class QuestionService {
   static List<Question>? _cache;
 
   /// Server-first (latest + admin-imported); seed JSON fallback offline
+  /// Fetches ALL questions by looping through pages (backend caps each page at 500)
   static Future<List<Question>> loadSeed() async {
     if (_cache != null) return _cache!;
     try {
-      final res = await ApiService.instance.dio
-          .get('/api/questions', queryParameters: {'limit': 300});
-      final list = (res.data['questions'] as List)
-          .map((j) => Question.fromJson(j))
-          .toList();
-      if (list.isNotEmpty) return _cache = list;
+      final List<Question> all = [];
+      const pageSize = 500;
+      int offset = 0;
+      while (true) {
+        final res = await ApiService.instance.dio.get('/api/questions',
+            queryParameters: {'limit': pageSize, 'offset': offset});
+        final page = (res.data['questions'] as List)
+            .map((j) => Question.fromJson(j))
+            .toList();
+        all.addAll(page);
+        if (page.length < pageSize) break; // last page reached
+        offset += pageSize;
+      }
+      if (all.isNotEmpty) return _cache = all;
     } catch (_) {
       // offline / cold start — seed asset fallback
     }
