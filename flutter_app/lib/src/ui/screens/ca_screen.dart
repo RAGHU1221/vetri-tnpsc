@@ -109,31 +109,43 @@ class _CAScreenState extends State<CAScreen> {
                                 color: Color(0xFF14213D))),
                       ),
                       for (final it in e.value)
-                        Card(
-                          shape: it.isTn
-                              ? RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: const BorderSide(
-                                      color: Color(0xFFC9971C), width: 1.5))
-                              : null,
-                          child: ListTile(
-                            leading: Text(catIcons[it.category] ?? '📰',
-                                style: const TextStyle(fontSize: 24)),
-                            title: Text(ta || it.titleEn.isEmpty
-                                    ? it.titleTa
-                                    : it.titleEn,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                            subtitle: (ta ? it.contentTa : it.contentEn)
-                                    .isNotEmpty
-                                ? Text(ta ? it.contentTa : it.contentEn)
-                                : null,
-                            trailing: it.isTn
-                                ? const Text('⭐ TN',
-                                    style: TextStyle(
-                                        color: Color(0xFFC9971C),
-                                        fontWeight: FontWeight.w800))
-                                : null,
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Card(
+                            shape: it.isTn
+                                ? RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: const BorderSide(
+                                        color: Color(0xFFC9971C), width: 1.5))
+                                : RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                            elevation: 2,
+                            child: ExpansionTile(
+                              tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                              leading: Text(catIcons[it.category] ?? '📰',
+                                  style: const TextStyle(fontSize: 24)),
+                              title: Text(ta || it.titleEn.isEmpty
+                                      ? it.titleTa
+                                      : it.titleEn,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                              trailing: it.isTn
+                                  ? const Text('⭐ TN',
+                                      style: TextStyle(
+                                          color: Color(0xFFC9971C),
+                                          fontWeight: FontWeight.w800))
+                                  : const Icon(Icons.expand_more),
+                              children: [
+                                if ((ta ? it.contentTa : it.contentEn).isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(ta ? it.contentTa : it.contentEn),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                     ],
