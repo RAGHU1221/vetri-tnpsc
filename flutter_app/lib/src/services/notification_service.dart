@@ -31,6 +31,8 @@ class NotificationService {
           android: AndroidNotificationDetails('daily_quiz', 'Daily Quiz',
               importance: Importance.high)),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time, // repeat daily
     );
   }
