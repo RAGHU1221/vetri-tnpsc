@@ -1,4 +1,8 @@
-# வெற்றி TNPSC (Vetri TNPSC) — Phase 1
+# வெற்றி TNPSC (Vetri TNPSC)
+
+**Repo:** [github.com/RAGHU1221/vetri-tnpsc](https://github.com/RAGHU1221/vetri-tnpsc)
+**Developer:** RAGHU1221
+**Auto-build APK:** [Actions tab](https://github.com/RAGHU1221/vetri-tnpsc/actions) → latest run → Artifacts / Releases
 
 TNPSC exam prep app — Tamil & English bilingual. Flutter + PHP + MySQL.
 
@@ -10,12 +14,13 @@ flutter_app/   Flutter app (Android)
 
 ## Backend deploy (Render + Aiven) — VIVASAYI same pattern
 1. Aiven-la new MySQL DB create pannunga: `vetri_tnpsc`
-2. `php_api/schema.sql` run pannunga (Aiven console query editor)
-3. GitHub-la repo push pannunga
-4. Render → New Web Service → repo select → Root Directory: `php_api` → Docker
-5. Environment variables set pannunga (`.env.example` paarunga): DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS, DB_SSL=true, JWT_SECRET
+2. `php_api/full_schema.sql` run pannunga (Aiven console query editor) — single merged file, all tables
+3. GitHub repo already ready: `github.com/RAGHU1221/vetri-tnpsc`
+4. Render → New Web Service → **"Build and deploy from a Git repository"** → connect RAGHU1221/vetri-tnpsc → Root Directory: `php_api` → Docker
+5. Environment variables set pannunga (`.env.example` paarunga): DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS, DB_SSL=true, JWT_SECRET, CRON_SECRET
 6. Deploy! → `https://vetri-tnpsc.onrender.com` test: GET `/` → `{"app":"Vetri TNPSC API","status":"ok"}`
-7. Seed data: local-la `php seed_loader.php` run pannunga (env vars set panni) — 120 questions DB-la load aagum
+7. Seed data: local-la `php seed_loader.php` run pannunga (env vars set panni) — questions DB-la load aagum
+8. Guide data: `php guide_seed_loader.php` — வழிகாட்டி (exam guides, Group 1 syllabus) DB-la load aagum
 
 ## API endpoints (Phase 1)
 | Method | Path | Auth | Description |
