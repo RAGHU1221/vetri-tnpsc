@@ -32,8 +32,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final ta = app.isTamil;
+    const guideKeyMap = {'G4': 'tnpsc_g4', 'G2A': 'tnpsc_g2a', 'NMMS': 'nmms', 'G1': 'tnpsc_g1'};
+    final syllabusRoute = '/guide/${guideKeyMap[app.examGroup] ?? 'tnpsc_g4'}';
     final tiles = [
-      (Icons.menu_book_rounded, ta ? 'பாடத்திட்டம்' : 'Syllabus', '/syllabus',
+      (Icons.menu_book_rounded, ta ? 'பாடத்திட்டம்' : 'Syllabus', syllabusRoute,
           const [Color(0xFF3E6FB0), Color(0xFF2A4F82)]),
       (Icons.quiz_rounded, ta ? 'கேள்வி வங்கி' : 'Question Bank', '/syllabus',
           const [Color(0xFFC9971C), Color(0xFFA87A12)]),
