@@ -37,25 +37,31 @@ class VetriApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: paper,
         colorScheme: ColorScheme.fromSeed(seedColor: leaf, primary: leaf),
-        // Tamil readability: Noto Sans Tamil, comfortable sizes
+        // Tamil readability: Noto Sans Tamil for body, Baloo Thambi 2 for headings
         textTheme: GoogleFonts.notoSansTamilTextTheme().copyWith(
           bodyLarge: GoogleFonts.notoSansTamil(fontSize: 18, height: 1.7),
           bodyMedium: GoogleFonts.notoSansTamil(fontSize: 16, height: 1.6),
+          titleLarge: GoogleFonts.balooThambi2(fontWeight: FontWeight.w700),
+          titleMedium: GoogleFonts.balooThambi2(fontWeight: FontWeight.w600),
+          titleSmall: GoogleFonts.balooThambi2(fontWeight: FontWeight.w600),
+          headlineLarge: GoogleFonts.balooThambi2(fontWeight: FontWeight.w800),
+          headlineMedium: GoogleFonts.balooThambi2(fontWeight: FontWeight.w700),
+          headlineSmall: GoogleFonts.balooThambi2(fontWeight: FontWeight.w700),
         ),
-        appBarTheme: const AppBarTheme(
+        appBarTheme: AppBarTheme(
             backgroundColor: leaf,
             foregroundColor: Colors.white,
             elevation: 0,
             centerTitle: false,
-            titleTextStyle: TextStyle(
-                fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
+            titleTextStyle: GoogleFonts.balooThambi2(
+                fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
             backgroundColor: leaf,
             minimumSize: const Size.fromHeight(52),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            textStyle: GoogleFonts.notoSansTamil(
-                fontSize: 16, fontWeight: FontWeight.w800),
+            textStyle: GoogleFonts.balooThambi2(
+                fontSize: 16, fontWeight: FontWeight.w700),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
@@ -63,8 +69,8 @@ class VetriApp extends StatelessWidget {
             minimumSize: const Size.fromHeight(52),
             side: const BorderSide(color: leaf, width: 1.6),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            textStyle: GoogleFonts.notoSansTamil(
-                fontSize: 16, fontWeight: FontWeight.w800),
+            textStyle: GoogleFonts.balooThambi2(
+                fontSize: 16, fontWeight: FontWeight.w700),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
