@@ -7,7 +7,7 @@ use App\Core\JWT;
 class AIController
 {
     private const DAILY_LIMIT = 30; // per user per day
-        private const MODEL = 'meta/llama-3.1-8b-instruct';
+    private const MODEL = 'meta/llama-3.1-8b-instruct';
     private const ENDPOINT = 'https://integrate.api.nvidia.com/v1/chat/completions';
 
     private static function checkLimit(int $uid): bool
