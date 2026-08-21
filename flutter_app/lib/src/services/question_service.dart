@@ -71,12 +71,18 @@ class QuestionService {
     } catch (_) {
       // offline / cold start — seed asset fallback
     }
-    final raw = await rootBundle.loadString('assets/data/questions_seed.json');
-    final data = jsonDecode(raw) as Map<String, dynamic>;
-    _cache = (data['questions'] as List)
-        .map((q) => Question.fromJson(q))
-        .toList();
-    return _cache!;
+    try {
+      final raw = await rootBundle.loadString('assets/data/questions_seed.json');
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      _cache = (data['questions'] as List)
+          .map((q) => Question.fromJson(q))
+          .toList();
+      return _cache!;
+    } catch (_) {
+      // Bundled seed missing/unreadable and API unreachable — return empty
+      // rather than crash; screens should handle an empty question list.
+      return _cache = [];
+    }
   }
 
   static Future<Map<String, List<Question>>> bySubject({String? groupExam}) async {
