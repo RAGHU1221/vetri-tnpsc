@@ -14,8 +14,14 @@ const paper = Color(0xFFFBF7EE);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await NotificationService.init();
-  NotificationService.scheduleDailyQuizReminder();
+  // Notifications are a nice-to-have (daily reminder) — never let a failure
+  // here (plugin/permission/timezone issues) block the whole app from launching.
+  try {
+    await NotificationService.init();
+    NotificationService.scheduleDailyQuizReminder();
+  } catch (e, st) {
+    debugPrint('NotificationService init failed (non-fatal): $e\n$st');
+  }
   runApp(
       ChangeNotifierProvider(
         create: (_) => AppProvider(),
