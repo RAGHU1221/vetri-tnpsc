@@ -52,6 +52,51 @@ jobs:
           sed -i 's#android:label="[^"]*"#android:label="Vetri TNPSC"#' "$MANIFEST"
           head -10 "$MANIFEST"
 
+      - name: Enable core library desugaring (required by flutter_local_notifications)
+        run: |
+          python3 - << 'PYEOF'
+          import re, glob
+
+          candidates = glob.glob('android/app/build.gradle.kts') + glob.glob('android/app/build.gradle')
+          path = candidates[0]
+          kotlin_dsl = path.endswith('.kts')
+          print(f"Patching {path} (kotlin_dsl={kotlin_dsl})")
+          src = open(path).read()
+
+          if kotlin_dsl:
+              if 'isCoreLibraryDesugaringEnabled' not in src:
+                  src = re.sub(
+                      r'(compileOptions\s*\{)',
+                      r'\1\n        isCoreLibraryDesugaringEnabled = true',
+                      src, count=1)
+              if 'coreLibraryDesugaring(' not in src:
+                  if re.search(r'\ndependencies\s*\{', src):
+                      src = re.sub(
+                          r'(\ndependencies\s*\{)',
+                          r'\1\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")',
+                          src, count=1)
+                  else:
+                      src += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+          else:
+              if 'coreLibraryDesugaringEnabled' not in src:
+                  src = re.sub(
+                      r'(compileOptions\s*\{)',
+                      r'\1\n        coreLibraryDesugaringEnabled true',
+                      src, count=1)
+              if 'coreLibraryDesugaring ' not in src:
+                  if re.search(r'\ndependencies\s*\{', src):
+                      src = re.sub(
+                          r'(\ndependencies\s*\{)',
+                          r"\1\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
+                          src, count=1)
+                  else:
+                      src += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
+
+          open(path, 'w').write(src)
+          print("--- Result ---")
+          print(src)
+          PYEOF
+
       - name: Install dependencies
         run: flutter pub get
 
