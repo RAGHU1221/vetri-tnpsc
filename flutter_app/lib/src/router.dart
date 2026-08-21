@@ -21,7 +21,14 @@ import 'services/question_service.dart';
 final router = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
-    final loggedIn = await AuthService().isLoggedIn();
+    // Never let an auth-check failure (storage/plugin error) block routing —
+    // fall back to "not logged in" so the app always reaches a usable screen.
+    bool loggedIn = false;
+    try {
+      loggedIn = await AuthService().isLoggedIn();
+    } catch (_) {
+      loggedIn = false;
+    }
     final onAuth = state.matchedLocation == '/login' || state.matchedLocation == '/signup';
     if (!loggedIn && !onAuth) return '/login';
     if (loggedIn && onAuth) return '/dashboard';
