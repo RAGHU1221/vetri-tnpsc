@@ -57,9 +57,14 @@ class GuideService {
     } catch (_) {
       // offline fallback below
     }
-    final raw = await rootBundle.loadString('assets/data/exam_guides.json');
-    final list = (jsonDecode(raw) as List).map((g) => ExamGuide.fromJson(g)).toList();
-    return _cache = list;
+    try {
+      final raw = await rootBundle.loadString('assets/data/exam_guides.json');
+      final list = (jsonDecode(raw) as List).map((g) => ExamGuide.fromJson(g)).toList();
+      return _cache = list;
+    } catch (_) {
+      // Asset missing/unreadable — never crash the app over guide content.
+      return _cache = [];
+    }
   }
 
   static Future<Map<String, List<ExamGuide>>> byCategory() async {
