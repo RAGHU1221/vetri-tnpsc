@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/api_config.dart';
 
@@ -16,13 +17,38 @@ class ApiService {
   ))
     ..interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.read(key: 'token');
+        final token = await getToken();
         if (token != null) options.headers['Authorization'] = 'Bearer $token';
         handler.next(options);
       },
     ));
 
-  Future<void> saveToken(String token) => _storage.write(key: 'token', value: token);
-  Future<String?> getToken() => _storage.read(key: 'token');
-  Future<void> clearToken() => _storage.delete(key: 'token');
+  // Secure storage (Android Keystore-backed) can throw PlatformException on
+  // some devices/first-launch scenarios. This runs on every app start (via
+  // the router's login check), so every call is guarded — a storage failure
+  // should never crash the app, just be treated as "not logged in".
+  Future<void> saveToken(String token) async {
+    try {
+      await _storage.write(key: 'token', value: token);
+    } catch (e) {
+      debugPrint('SecureStorage write failed (non-fatal): $e');
+    }
+  }
+
+  Future<String?> getToken() async {
+    try {
+      return await _storage.read(key: 'token');
+    } catch (e) {
+      debugPrint('SecureStorage read failed (non-fatal): $e');
+      return null;
+    }
+  }
+
+  Future<void> clearToken() async {
+    try {
+      await _storage.delete(key: 'token');
+    } catch (e) {
+      debugPrint('SecureStorage delete failed (non-fatal): $e');
+    }
+  }
 }
