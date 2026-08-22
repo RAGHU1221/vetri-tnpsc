@@ -92,52 +92,87 @@ class _CAScreenState extends State<CAScreen> {
                         textAlign: TextAlign.center),
                   ));
                 }
-                // Group by date
+                // Group by date, then flatten into one indexed list so
+                // ListView.builder can lazily build items — smooth scrolling
+                // even with 170+ current-affairs entries (previously built
+                // every card eagerly, causing scroll jank).
                 final byDate = <String, List<CAItem>>{};
                 for (final it in items) {
                   byDate.putIfAbsent(it.date, () => []).add(it);
                 }
-                return ListView(
+                final flat = <Object>[]; // String = date header, CAItem = card
+                for (final e in byDate.entries) {
+                  flat.add(e.key);
+                  flat.addAll(e.value);
+                }
+                return ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  children: [
-                    for (final e in byDate.entries) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text('📅 ${e.key}',
+                  itemCount: flat.length,
+                  itemBuilder: (context, i) {
+                    final entry = flat[i];
+                    if (entry is String) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 10, bottom: 8),
+                        child: Text('📅 $entry',
                             style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 color: Color(0xFF14213D))),
+                      );
+                    }
+                    final it = entry as CAItem;
+                    final subtitleText = ta ? it.contentTa : it.contentEn;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: it.isTn
+                            ? Border.all(color: const Color(0xFFC9971C), width: 1.5)
+                            : null,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 6, offset: const Offset(0, 2)),
+                        ],
                       ),
-                      for (final it in e.value)
-                        Card(
-                          shape: it.isTn
-                              ? RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: const BorderSide(
-                                      color: Color(0xFFC9971C), width: 1.5))
-                              : null,
-                          child: ListTile(
-                            leading: Text(catIcons[it.category] ?? '📰',
-                                style: const TextStyle(fontSize: 24)),
-                            title: Text(ta || it.titleEn.isEmpty
-                                    ? it.titleTa
-                                    : it.titleEn,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                            subtitle: (ta ? it.contentTa : it.contentEn)
-                                    .isNotEmpty
-                                ? Text(ta ? it.contentTa : it.contentEn)
-                                : null,
-                            trailing: it.isTn
-                                ? const Text('⭐ TN',
-                                    style: TextStyle(
-                                        color: Color(0xFFC9971C),
-                                        fontWeight: FontWeight.w800))
-                                : null,
-                          ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(catIcons[it.category] ?? '📰', style: const TextStyle(fontSize: 24)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                            ta || it.titleEn.isEmpty ? it.titleTa : it.titleEn,
+                                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                                      ),
+                                      if (it.isTn)
+                                        const Padding(
+                                          padding: EdgeInsets.only(left: 8),
+                                          child: Text('⭐ TN',
+                                              style: TextStyle(color: Color(0xFFC9971C), fontWeight: FontWeight.w800, fontSize: 12)),
+                                        ),
+                                    ],
+                                  ),
+                                  if (subtitleText.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(subtitleText,
+                                        style: TextStyle(color: Colors.grey.shade700, fontSize: 13, height: 1.4)),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                    ],
-                  ],
+                      ),
+                    );
+                  },
                 );
               },
             ),
