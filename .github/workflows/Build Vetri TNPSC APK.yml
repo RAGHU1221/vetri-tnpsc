@@ -139,8 +139,9 @@ jobs:
               the same on every build from now on.)
         run: |
           echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > android/app/vetri-release.keystore
+          ls -la android/app/vetri-release.keystore
           python3 - << 'PYEOF'
-          import glob
+          import re, glob
 
           candidates = glob.glob('android/app/build.gradle.kts') + glob.glob('android/app/build.gradle')
           path = candidates[0]
@@ -156,9 +157,18 @@ jobs:
                        '        }', '    }', '']
               signing_block = chr(10).join(lines)
               src = src.replace("android {" + chr(10), signing_block, 1)
-              src = src.replace(
-                  'signingConfig = signingConfigs.getByName("debug")',
-                  'signingConfig = signingConfigs.getByName("release")')
+              # Remove ANY existing signingConfig line inside release{} first —
+              # exact-string matching against Flutter's template text is fragile
+              # across Flutter/AGP versions (this is what silently produced a
+              # completely UNSIGNED apk last time: the old debug-reference
+              # string didn't match, so our release config was never wired in,
+              # AGP left signingConfig unset, and the output had no signature
+              # at all — not even a mismatched one).
+              src = re.sub(r'[ \t]*signingConfig\s*=\s*signingConfigs\.\w+(\([^)]*\))?[ \t]*\n', '', src)
+              src = re.sub(
+                  r'(release\s*\{)',
+                  r'\1\n            signingConfig = signingConfigs.getByName("release")',
+                  src, count=1)
           else:
               lines = ['android {', '    signingConfigs {', '        release {',
                        '            storeFile file("vetri-release.keystore")',
@@ -168,11 +178,14 @@ jobs:
                        '        }', '    }', '']
               signing_block = chr(10).join(lines)
               src = src.replace("android {" + chr(10), signing_block, 1)
-              src = src.replace('signingConfig signingConfigs.debug',
-                                 'signingConfig signingConfigs.release')
+              src = re.sub(r'[ \t]*signingConfig\s+signingConfigs\.\w+[ \t]*\n', '', src)
+              src = re.sub(
+                  r'(release\s*\{)',
+                  r'\1\n            signingConfig signingConfigs.release',
+                  src, count=1)
 
           open(path, 'w').write(src)
-          print("--- Result ---")
+          print("--- Final build.gradle content (verify signingConfig + keystore path look right) ---")
           print(src)
           PYEOF
 
