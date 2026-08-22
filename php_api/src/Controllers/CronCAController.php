@@ -16,7 +16,12 @@ class CronCAController
         ['url' => 'https://www.thehindu.com/news/national/tamil-nadu/feeder/default.rss',
          'category' => 'tn', 'is_tn' => 1],
         ['url' => 'https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3',
-         'category' => 'tn', 'is_tn' => 1],
+         'category' => 'national', 'is_tn' => 0], // PIB carries central-govt/national
+                                                    // announcements (ministries, PSUs like
+                                                    // SAIL) even on its regional feed —
+                                                    // was wrongly marked is_tn=1 before,
+                                                    // causing national news to show under
+                                                    // the "தமிழ்நாடு மட்டும்" filter.
         ['url' => 'https://www.thehindu.com/news/national/feeder/default.rss',
          'category' => 'national', 'is_tn' => 0],
         ['url' => 'https://www.thehindu.com/sci-tech/feeder/default.rss',
@@ -54,7 +59,9 @@ class CronCAController
                   . 'Reply with ONLY the Tamil translation, nothing else.'],
                 ['role' => 'user', 'content' => $text],
             ],
-            'max_tokens' => 150,
+            'max_tokens' => 600, // sarvam-m "thinks" internally before answering —
+                                 // 150 was cutting it off mid-thought, producing
+                                 // broken/garbled partial-sentence translations.
             'temperature' => 0.2,
         ], JSON_UNESCAPED_UNICODE);
         $ch = curl_init('https://integrate.api.nvidia.com/v1/chat/completions');
@@ -63,14 +70,24 @@ class CronCAController
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $payload,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . $key],
-            CURLOPT_TIMEOUT => 25,
+            CURLOPT_TIMEOUT => 40,
         ]);
         $res = curl_exec($ch);
         curl_close($ch);
         if (!$res) return null;
         $data = json_decode($res, true);
         $ta = $data['choices'][0]['message']['content'] ?? null;
-        return $ta ? trim($ta) : null;
+        if ($ta === null) return null;
+
+        // Strip sarvam-m's internal <think>...</think> reasoning trace — only
+        // the actual translation should ever be stored/shown.
+        $ta = trim(preg_replace('/<think>.*?<\/think>/s', '', $ta));
+
+        // If it's empty or still has an unclosed <think> tag, the translation
+        // never completed — return null so the caller falls back to English
+        // rather than storing a broken/garbled Tamil fragment.
+        if ($ta === '' || str_contains($ta, '<think>')) return null;
+        return $ta;
     }
 
     private static function relevant(string $title): bool
