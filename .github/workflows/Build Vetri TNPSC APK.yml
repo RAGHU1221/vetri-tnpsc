@@ -107,22 +107,24 @@ jobs:
           kotlin_dsl = path.endswith('.kts')
           src = open(path).read()
 
+          # Remove ANY existing isMinifyEnabled / isShrinkResources lines first
+          # (whatever their current value) so we never end up with a leftover
+          # "shrinkResources = true" contradicting a fresh "minifyEnabled = false"
+          # — AGP hard-errors if shrinkResources is on while minify is off.
           if kotlin_dsl:
-              src = re.sub(r'isMinifyEnabled\s*=\s*true', 'isMinifyEnabled = false', src)
-              src = re.sub(r'isShrinkResources\s*=\s*true', 'isShrinkResources = false', src)
-              if 'isMinifyEnabled' not in src:
-                  src = re.sub(
-                      r'(release\s*\{)',
-                      r'\1\n            isMinifyEnabled = false',
-                      src, count=1)
+              src = re.sub(r'[ \t]*isMinifyEnabled\s*=\s*(true|false)[ \t]*\n', '', src)
+              src = re.sub(r'[ \t]*isShrinkResources\s*=\s*(true|false)[ \t]*\n', '', src)
+              src = re.sub(
+                  r'(release\s*\{)',
+                  r'\1\n            isMinifyEnabled = false\n            isShrinkResources = false',
+                  src, count=1)
           else:
-              src = re.sub(r'minifyEnabled\s+true', 'minifyEnabled false', src)
-              src = re.sub(r'shrinkResources\s+true', 'shrinkResources false', src)
-              if 'minifyEnabled' not in src:
-                  src = re.sub(
-                      r'(release\s*\{)',
-                      r'\1\n            minifyEnabled false',
-                      src, count=1)
+              src = re.sub(r'[ \t]*minifyEnabled\s+(true|false)[ \t]*\n', '', src)
+              src = re.sub(r'[ \t]*shrinkResources\s+(true|false)[ \t]*\n', '', src)
+              src = re.sub(
+                  r'(release\s*\{)',
+                  r'\1\n            minifyEnabled false\n            shrinkResources false',
+                  src, count=1)
 
           open(path, 'w').write(src)
           print("--- Result ---")
