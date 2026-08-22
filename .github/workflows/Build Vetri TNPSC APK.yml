@@ -93,6 +93,87 @@ jobs:
           print(src)
           PYEOF
 
+      - name: Disable R8 minification for release (safety-first — full-mode R8 shrinking was
+              stripping/renaming classes needed by plugins like flutter_local_notifications at
+              runtime, causing a crash-on-launch with no compile-time warning. Trade a slightly
+              larger APK for a build that reliably starts; can be re-enabled later with proper
+              proguard keep rules once stable.)
+        run: |
+          python3 - << 'PYEOF'
+          import re, glob
+
+          candidates = glob.glob('android/app/build.gradle.kts') + glob.glob('android/app/build.gradle')
+          path = candidates[0]
+          kotlin_dsl = path.endswith('.kts')
+          src = open(path).read()
+
+          if kotlin_dsl:
+              src = re.sub(r'isMinifyEnabled\s*=\s*true', 'isMinifyEnabled = false', src)
+              src = re.sub(r'isShrinkResources\s*=\s*true', 'isShrinkResources = false', src)
+              if 'isMinifyEnabled' not in src:
+                  src = re.sub(
+                      r'(release\s*\{)',
+                      r'\1\n            isMinifyEnabled = false',
+                      src, count=1)
+          else:
+              src = re.sub(r'minifyEnabled\s+true', 'minifyEnabled false', src)
+              src = re.sub(r'shrinkResources\s+true', 'shrinkResources false', src)
+              if 'minifyEnabled' not in src:
+                  src = re.sub(
+                      r'(release\s*\{)',
+                      r'\1\n            minifyEnabled false',
+                      src, count=1)
+
+          open(path, 'w').write(src)
+          print("--- Result ---")
+          print(src)
+          PYEOF
+
+      - name: Set up permanent release signing (fixes "App not installed" —
+              every previous build used a fresh random debug key since CI
+              runners don't persist ~/.android/debug.keystore between runs,
+              so each APK had a different signature and Android refused to
+              install over the previously-installed one. This keystore is
+              the same on every build from now on.)
+        run: |
+          echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > android/app/vetri-release.keystore
+          python3 - << 'PYEOF'
+          import glob
+
+          candidates = glob.glob('android/app/build.gradle.kts') + glob.glob('android/app/build.gradle')
+          path = candidates[0]
+          kotlin_dsl = path.endswith('.kts')
+          src = open(path).read()
+
+          if kotlin_dsl:
+              lines = ['android {', '    signingConfigs {', '        create("release") {',
+                       '            storeFile = file("vetri-release.keystore")',
+                       '            storePassword = "VetriTNPSC2026"',
+                       '            keyAlias = "vetritnpsc"',
+                       '            keyPassword = "VetriTNPSC2026"',
+                       '        }', '    }', '']
+              signing_block = chr(10).join(lines)
+              src = src.replace("android {" + chr(10), signing_block, 1)
+              src = src.replace(
+                  'signingConfig = signingConfigs.getByName("debug")',
+                  'signingConfig = signingConfigs.getByName("release")')
+          else:
+              lines = ['android {', '    signingConfigs {', '        release {',
+                       '            storeFile file("vetri-release.keystore")',
+                       '            storePassword "VetriTNPSC2026"',
+                       '            keyAlias "vetritnpsc"',
+                       '            keyPassword "VetriTNPSC2026"',
+                       '        }', '    }', '']
+              signing_block = chr(10).join(lines)
+              src = src.replace("android {" + chr(10), signing_block, 1)
+              src = src.replace('signingConfig signingConfigs.debug',
+                                 'signingConfig signingConfigs.release')
+
+          open(path, 'w').write(src)
+          print("--- Result ---")
+          print(src)
+          PYEOF
+
       - name: Install dependencies
         run: flutter pub get
 
