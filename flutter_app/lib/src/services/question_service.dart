@@ -62,12 +62,23 @@ class QuestionService {
   static Future<List<Question>> loadSeed() async {
     if (_cache != null) return _cache!;
     try {
-      final res = await ApiService.instance.dio
-          .get('/api/questions', queryParameters: {'limit': 300});
-      final list = (res.data['questions'] as List)
-          .map((j) => Question.fromJson(j))
-          .toList();
-      if (list.isNotEmpty) return _cache = list;
+      // Loop through pages of 500 (server's max per-request cap) until every
+      // question is fetched — works correctly no matter how many questions
+      // exist in the DB now or after future imports (871, 2000, etc.).
+      final all = <Question>[];
+      const pageSize = 500;
+      int offset = 0;
+      while (true) {
+        final res = await ApiService.instance.dio.get('/api/questions',
+            queryParameters: {'limit': pageSize, 'offset': offset});
+        final page = (res.data['questions'] as List)
+            .map((j) => Question.fromJson(j))
+            .toList();
+        all.addAll(page);
+        if (page.length < pageSize) break; // last page reached
+        offset += pageSize;
+      }
+      if (all.isNotEmpty) return _cache = all;
     } catch (_) {
       // offline / cold start — seed asset fallback
     }
