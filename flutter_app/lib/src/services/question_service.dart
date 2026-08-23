@@ -58,6 +58,17 @@ class Question {
 class QuestionService {
   static List<Question>? _cache;
 
+  /// Admin panel-la import pannadhum, already-running app-oda cache-a
+  /// force clear panna. Aprom loadSeed()/bySubject() next call automatic-a
+  /// server-kitta fresh data eduthukum.
+  static void clearCache() => _cache = null;
+
+  /// Cache clear panni udane server-la irundhu fresh-a reload pannum.
+  static Future<List<Question>> refresh() {
+    clearCache();
+    return loadSeed();
+  }
+
   /// Server-first (latest + admin-imported); seed JSON fallback offline
   static Future<List<Question>> loadSeed() async {
     if (_cache != null) return _cache!;
