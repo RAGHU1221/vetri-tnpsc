@@ -1,71 +1,54 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../config/api_config.dart';
 
 class ApiService {
-  final String _baseUrl;
-  final Map<String, String> _headers;
+  ApiService._();
+  static final ApiService instance = ApiService._();
 
-  ApiService({required String baseUrl})
-      : _baseUrl = baseUrl,
-        _headers = {'Content-Type': 'application/json'};
+  static const _storage = FlutterSecureStorage();
 
-  Future<Map<String, dynamic>> get(String path) async {
-    final response = await http.get(
-      Uri.parse('$_baseUrl$path'),
-      headers: _headers,
-    );
-    return _handleResponse(response);
-  }
+  late final Dio dio = Dio(BaseOptions(
+    baseUrl: ApiConfig.baseUrl,
+    connectTimeout: const Duration(seconds: 60), // Render cold start
+    receiveTimeout: const Duration(seconds: 30),
+    headers: {'Content-Type': 'application/json'},
+  ))
+    ..interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await getToken();
+        if (token != null) options.headers['Authorization'] = 'Bearer $token';
+        handler.next(options);
+      },
+    ));
 
-  Future<Map<String, dynamic>> post(String path, Map<String, dynamic> body) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl$path'),
-      headers: _headers,
-      body: jsonEncode(body),
-    );
-    return _handleResponse(response);
-  }
-
-  Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) async {
-    final response = await http.put(
-      Uri.parse('$_baseUrl$path'),
-      headers: _headers,
-      body: jsonEncode(body),
-    );
-    return _handleResponse(response);
-  }
-
-  Future<Map<String, dynamic>> delete(String path) async {
-    final response = await http.delete(
-      Uri.parse('$_baseUrl$path'),
-      headers: _headers,
-    );
-    return _handleResponse(response);
-  }
-
-  Map<String, dynamic> _handleResponse(http.Response response) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+  // Secure storage (Android Keystore-backed) can throw PlatformException on
+  // some devices/first-launch scenarios. This runs on every app start (via
+  // the router's login check), so every call is guarded — a storage failure
+  // should never crash the app, just be treated as "not logged in".
+  Future<void> saveToken(String token) async {
+    try {
+      await _storage.write(key: 'token', value: token);
+    } catch (e) {
+      debugPrint('SecureStorage write failed (non-fatal): $e');
     }
-    throw ApiException(
-      statusCode: response.statusCode,
-      message: response.reasonPhrase ?? 'Unknown error',
-      body: response.body,
-    );
   }
-}
 
-class ApiException implements Exception {
-  final int statusCode;
-  final String message;
-  final String body;
+  Future<String?> getToken() async {
+    try {
+      return await _storage.read(key: 'token');
+    } catch (e) {
+      debugPrint('SecureStorage read failed (non-fatal): $e');
+      return null;
+    }
+  }
 
-  ApiException({
-    required this.statusCode,
-    required this.message,
-    required this.body,
-  });
-
-  @override
-  String toString() => 'ApiException($statusCode): $message\n$body';
+  Future<void> clearToken() async {
+    try {
+      await _storage.delete(key: 'token');
+    } catch (e) {
+      debugPrint('SecureStorage delete failed (non-fatal): $e');
+    }
+  }
 }
