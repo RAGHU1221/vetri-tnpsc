@@ -24,6 +24,29 @@ class CAScreen extends StatefulWidget {
 class _CAScreenState extends State<CAScreen> {
   bool _tnOnly = false;
   late Future<List<CAItem>> _future;
+  // null = "latest" (server default: most recent ~100 items across dates).
+  // Non-null = browsing a specific past month's archive (old news).
+  DateTime? _month;
+  final DateTime _thisMonth = DateTime(DateTime.now().year, DateTime.now().month);
+
+  static const _monthNamesTa = [
+    'ஜன', 'பிப்', 'மார்', 'ஏப்', 'மே', 'ஜூன்',
+    'ஜூலை', 'ஆக', 'செப்', 'அக்', 'நவ', 'டிச',
+  ];
+  static const _monthNamesEn = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String _monthLabel(bool ta) {
+    if (_month == null) return ta ? 'சமீபத்தியவை' : 'Latest';
+    final names = ta ? _monthNamesTa : _monthNamesEn;
+    return '${names[_month!.month - 1]} ${_month!.year}';
+  }
+
+  String? get _monthParam => _month == null
+      ? null
+      : '${_month!.year.toString().padLeft(4, '0')}-${_month!.month.toString().padLeft(2, '0')}';
 
   @override
   void initState() {
@@ -31,8 +54,29 @@ class _CAScreenState extends State<CAScreen> {
     _future = CAService.fetch();
   }
 
-  void _reload() =>
-      setState(() => _future = CAService.fetch(tnOnly: _tnOnly));
+  Future<void> _reload() async {
+    setState(() =>
+        _future = CAService.fetch(tnOnly: _tnOnly, month: _monthParam));
+    await _future;
+  }
+
+  void _prevMonth() {
+    final base = _month ?? _thisMonth;
+    setState(() => _month = DateTime(base.year, base.month - 1));
+    _reload();
+  }
+
+  void _nextMonth() {
+    if (_month == null) return; // already at latest, nothing newer
+    final next = DateTime(_month!.year, _month!.month + 1);
+    setState(() => _month = next.isAfter(_thisMonth) ? null : next);
+    _reload();
+  }
+
+  void _resetToLatest() {
+    setState(() => _month = null);
+    _reload();
+  }
 
   static const catIcons = {
     'tn': '🏛️', 'national': '🇮🇳', 'international': '🌍',
@@ -108,8 +152,51 @@ class _CAScreenState extends State<CAScreen> {
               ],
             ),
           ),
+          // Old-news archive navigator: pazhaiya matham-ku pogaravanga
+          // idha use pannalam — click panna andha matham news kattum.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded, color: _ink),
+                  tooltip: ta ? 'முந்தைய மாதம்' : 'Previous month',
+                  onPressed: _prevMonth,
+                ),
+                Expanded(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE6DFC8)),
+                      ),
+                      child: Text(_monthLabel(ta),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: _ink)),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.chevron_right_rounded,
+                      color: _month == null ? Colors.grey.shade400 : _ink),
+                  tooltip: ta ? 'அடுத்த மாதம்' : 'Next month',
+                  onPressed: _month == null ? null : _nextMonth,
+                ),
+                if (_month != null)
+                  IconButton(
+                    icon: const Icon(Icons.today_rounded, color: _leaf),
+                    tooltip: ta ? 'சமீபத்தியவை' : 'Back to latest',
+                    onPressed: _resetToLatest,
+                  ),
+              ],
+            ),
+          ),
           Expanded(
-            child: FutureBuilder(
+            child: RefreshIndicator(
+              onRefresh: _reload,
+              color: _leaf,
+              child: FutureBuilder(
               future: _future,
               builder: (context, snap) {
                 if (snap.connectionState != ConnectionState.done) {
@@ -121,9 +208,13 @@ class _CAScreenState extends State<CAScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                          ta
-                              ? 'இன்னும் செய்திகள் இல்லை.\nAdmin panel-la daily update pannunga!'
-                              : 'No news yet.\nUpdate daily via admin panel!',
+                          _month != null
+                              ? (ta
+                                  ? 'இந்த மாதம் செய்திகள் இல்லை.'
+                                  : 'No news for this month.')
+                              : (ta
+                                  ? 'இன்னும் செய்திகள் இல்லை.\nகொஞ்ச நேரத்தில் தானாக புதுப்பிக்கப்படும்!'
+                                  : 'No news yet.\nWill auto-update shortly!'),
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.grey.shade600)),
                     ),
@@ -180,10 +271,37 @@ class _CAScreenState extends State<CAScreen> {
                   },
                 );
               },
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Embossed circular category-icon badge — used both as the default
+/// thumbnail and as the fallback while an article image loads/fails.
+class _CategoryBadge extends StatelessWidget {
+  final String icon;
+  const _CategoryBadge({required this.icon});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42, height: 42,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [Color(0xFFFFFFFF), Color(0xFFEFE7D2)]),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(.12), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.white.withOpacity(.8), blurRadius: 2, offset: const Offset(-1, -1)),
+        ],
+        border: Border.all(color: const Color(0xFFE6DFC8), width: 1),
+      ),
+      alignment: Alignment.center,
+      child: Text(icon, style: const TextStyle(fontSize: 20)),
     );
   }
 }
@@ -245,23 +363,23 @@ class _CACardState extends State<_CACard> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Embossed circular icon badge
-                    Container(
-                      width: 42, height: 42,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                            begin: Alignment.topLeft, end: Alignment.bottomRight,
-                            colors: [Color(0xFFFFFFFF), Color(0xFFEFE7D2)]),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(.12), blurRadius: 4, offset: const Offset(0, 2)),
-                          BoxShadow(color: Colors.white.withOpacity(.8), blurRadius: 2, offset: const Offset(-1, -1)),
-                        ],
-                        border: Border.all(color: const Color(0xFFE6DFC8), width: 1),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(widget.catIcons[it.category] ?? '📰', style: const TextStyle(fontSize: 20)),
-                    ),
+                    // Thumbnail image if the article has one; falls back to
+                    // the embossed circular category-icon badge otherwise.
+                    if (it.imageUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          it.imageUrl!,
+                          width: 56, height: 56, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _CategoryBadge(
+                              icon: widget.catIcons[it.category] ?? '📰'),
+                          loadingBuilder: (context, child, progress) =>
+                              progress == null ? child : _CategoryBadge(
+                                  icon: widget.catIcons[it.category] ?? '📰'),
+                        ),
+                      )
+                    else
+                      _CategoryBadge(icon: widget.catIcons[it.category] ?? '📰'),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -363,6 +481,19 @@ class _CADetailSheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (item.imageUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: Image.network(
+                            item.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                    if (item.imageUrl != null) const SizedBox(height: 14),
                     Row(
                       children: [
                         Container(
