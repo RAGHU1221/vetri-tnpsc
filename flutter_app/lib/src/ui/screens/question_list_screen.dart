@@ -5,9 +5,31 @@ import '../../services/question_service.dart';
 import '../widgets/vetri_buttons.dart';
 import '../widgets/question_body.dart';
 
-class QuestionListScreen extends StatelessWidget {
+class QuestionListScreen extends StatefulWidget {
   final String subject;
   const QuestionListScreen({super.key, required this.subject});
+
+  @override
+  State<QuestionListScreen> createState() => _QuestionListScreenState();
+}
+
+class _QuestionListScreenState extends State<QuestionListScreen> {
+  Future<Map<String, List<Question>>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = QuestionService.bySubject(
+        groupExam: context.read<AppProvider>().examGroup);
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _future = QuestionService.refresh().then(
+          (_) => QuestionService.bySubject(groupExam: context.read<AppProvider>().examGroup));
+    });
+    await _future;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,21 +37,35 @@ class QuestionListScreen extends StatelessWidget {
     final ta = app.isTamil;
     return Scaffold(
       backgroundColor: const Color(0xFFFBF7EE),
-      appBar: AppBar(title: Text(ta ? 'கேள்விகள்' : 'Questions'), elevation: 0),
-      body: FutureBuilder(
-        future: QuestionService.bySubject(groupExam: app.examGroup),
-        builder: (context, snap) {
-          if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final questions = snap.data![subject] ?? [];
-          questions.sort((a, b) => b.repeatCount.compareTo(a.repeatCount));
-          return ListView.builder(
-            padding: const EdgeInsets.all(14),
-            itemCount: questions.length,
-            itemBuilder: (context, i) => _QuestionCard(q: questions[i], ta: ta, index: i + 1),
-          );
-        },
+      appBar: AppBar(
+        title: Text(ta ? 'கேள்விகள்' : 'Questions'),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: ta ? 'புதுப்பிக்க' : 'Refresh',
+            onPressed: _refresh,
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: FutureBuilder(
+          future: _future,
+          builder: (context, snap) {
+            if (!snap.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final questions = snap.data![widget.subject] ?? [];
+            questions.sort((a, b) => b.repeatCount.compareTo(a.repeatCount));
+            return ListView.builder(
+              padding: const EdgeInsets.all(14),
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: questions.length,
+              itemBuilder: (context, i) => _QuestionCard(q: questions[i], ta: ta, index: i + 1),
+            );
+          },
+        ),
       ),
     );
   }
