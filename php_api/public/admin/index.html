@@ -13,6 +13,7 @@ async function addCA() {
     content_ta: $('caContentTa').value.trim(),
     content_en: $('caContentEn').value.trim(),
     category: $('caCategory').value.trim() || 'general',
+    image_url: $('caImageUrl').value.trim(),
     is_tn: $('caTn').checked ? 1 : 0,
   };
   if (!body.ca_date || !body.title_ta) {
@@ -21,7 +22,7 @@ async function addCA() {
   try {
     await api('/api/admin/ca', { method: 'POST', body: JSON.stringify(body) });
     $('caMsg').innerHTML = '<div class="ok-msg">✅ சேர்க்கப்பட்டது!</div>';
-    ['caTitleTa','caTitleEn','caContentTa','caContentEn'].forEach(id => $(id).value = '');
+    ['caTitleTa','caTitleEn','caContentTa','caContentEn','caImageUrl'].forEach(id => $(id).value = '');
   } catch (e) {
     $('caMsg').innerHTML = '<div class="err">Error: ' + e.message + '</div>';
   }
@@ -156,6 +157,24 @@ td{padding:7px;border-bottom:1px solid #EFE9DA;max-width:220px;overflow:hidden;t
       <div id="result"></div>
     </div>
   </div>
+  <!-- CURRENT AFFAIRS (manual entry — auto RSS fetch also runs automatically) -->
+  <div class="card hide" id="caCard">
+    <h2>📰 நடப்பு நிகழ்வுகள் — கைமுறை சேர்க்கை
+      <span class="badge">Auto-fetch RSS-la இருந்து தினமும் ஓடும்</span></h2>
+    <input type="text" id="caDate" placeholder="Date (YYYY-MM-DD) *">
+    <input type="text" id="caTitleTa" placeholder="தலைப்பு (தமிழ்) *">
+    <input type="text" id="caTitleEn" placeholder="Title (English)">
+    <input type="text" id="caContentTa" placeholder="விவரம் (தமிழ்)">
+    <input type="text" id="caContentEn" placeholder="Content (English)">
+    <input type="text" id="caCategory" placeholder="category (tn/national/international/science/sports/awards/schemes/general)">
+    <input type="text" id="caImageUrl" placeholder="Image URL (optional — https://...)">
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:.9rem">
+      <input type="checkbox" id="caTn" style="width:auto;margin:0"> தமிழ்நாடு சிறப்பு செய்தி (TN priority)
+    </label>
+    <button onclick="addCA()">➕ சேர்</button>
+    <div id="caMsg"></div>
+  </div>
+
   <!-- NOTIFICATIONS -->
   <div class="card hide" id="notifyCard">
     <h2>🔔 அறிவிப்பு சேர்/புதுப்பி (Job Notifications)</h2>
