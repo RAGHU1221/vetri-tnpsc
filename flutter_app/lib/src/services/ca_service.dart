@@ -3,6 +3,7 @@ import 'api_service.dart';
 
 class CAItem {
   final String date, category, titleTa, titleEn, contentTa, contentEn;
+  final String? imageUrl, sourceUrl;
   final bool isTn;
   CAItem.fromJson(Map<String, dynamic> j)
       : date = j['ca_date'] ?? '',
@@ -11,6 +12,8 @@ class CAItem {
         titleEn = j['title_en'] ?? '',
         contentTa = j['content_ta'] ?? '',
         contentEn = j['content_en'] ?? '',
+        imageUrl = (j['image_url'] as String?)?.trim().isNotEmpty == true ? j['image_url'] : null,
+        sourceUrl = (j['source_url'] as String?)?.trim().isNotEmpty == true ? j['source_url'] : null,
         isTn = (j['is_tn'] ?? 0).toString() == '1';
 }
 
