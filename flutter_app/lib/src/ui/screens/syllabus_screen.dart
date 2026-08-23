@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/app_provider.dart';
 import '../../services/question_service.dart';
 
-class SyllabusScreen extends StatelessWidget {
+class SyllabusScreen extends StatefulWidget {
   const SyllabusScreen({super.key});
 
   static const names = {
@@ -41,6 +41,28 @@ class SyllabusScreen extends StatelessWidget {
   };
 
   @override
+  State<SyllabusScreen> createState() => _SyllabusScreenState();
+}
+
+class _SyllabusScreenState extends State<SyllabusScreen> {
+  Future<Map<String, List<Question>>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = QuestionService.bySubject(
+        groupExam: context.read<AppProvider>().examGroup);
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _future = QuestionService.refresh().then(
+          (_) => QuestionService.bySubject(groupExam: context.read<AppProvider>().examGroup));
+    });
+    await _future;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final ta = app.isTamil;
@@ -50,9 +72,18 @@ class SyllabusScreen extends StatelessWidget {
           title: Text(ta
               ? 'பாடத்திட்டம் · ${app.examGroupLabelTa}'
               : 'Syllabus · ${app.examGroupLabelEn}'),
-          elevation: 0),
-      body: FutureBuilder(
-        future: QuestionService.bySubject(groupExam: app.examGroup),
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: ta ? 'புதுப்பிக்க' : 'Refresh',
+              onPressed: _refresh,
+            ),
+          ]),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: FutureBuilder(
+        future: _future,
         builder: (context, snap) {
           if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -60,6 +91,7 @@ class SyllabusScreen extends StatelessWidget {
           final subjects = snap.data!;
           return ListView(
             padding: const EdgeInsets.all(14),
+            physics: const AlwaysScrollableScrollPhysics(),
             children: [
               for (final entry in subjects.entries)
                 Container(
@@ -86,10 +118,10 @@ class SyllabusScreen extends StatelessWidget {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(13),
                                 gradient: LinearGradient(
-                                    colors: _colors[entry.key] ?? const [Color(0xFF2E7D4F), Color(0xFF1F5C38)],
+                                    colors: SyllabusScreen._colors[entry.key] ?? const [Color(0xFF2E7D4F), Color(0xFF1F5C38)],
                                     begin: Alignment.topLeft, end: Alignment.bottomRight),
                               ),
-                              child: Icon(_icons[entry.key] ?? Icons.folder_open,
+                              child: Icon(SyllabusScreen._icons[entry.key] ?? Icons.folder_open,
                                   color: Colors.white, size: 24),
                             ),
                             const SizedBox(width: 14),
@@ -99,8 +131,8 @@ class SyllabusScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                       ta
-                                          ? (names[entry.key]?.$1 ?? entry.key)
-                                          : (names[entry.key]?.$2 ?? entry.key),
+                                          ? (SyllabusScreen.names[entry.key]?.$1 ?? entry.key)
+                                          : (SyllabusScreen.names[entry.key]?.$2 ?? entry.key),
                                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
                                   const SizedBox(height: 3),
                                   Text(ta
@@ -125,6 +157,7 @@ class SyllabusScreen extends StatelessWidget {
             ],
           );
         },
+        ),
       ),
     );
   }
