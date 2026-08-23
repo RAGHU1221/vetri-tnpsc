@@ -6,9 +6,33 @@ use App\Core\JWT;
 
 class CAController
 {
+    /**
+     * Checks if today already has any current-affairs items; if not, runs
+     * the RSS fetch inline so the app always shows fresh news for "today"
+     * without depending on an external cron (cron-job.org) being configured
+     * on this hosting. Self-throttling: once today's items exist, this
+     * becomes a single cheap indexed COUNT(*) query and does nothing more.
+     * Wrapped in try/catch so a slow/broken feed never breaks the actual
+     * /api/current-affairs response the user is waiting on.
+     */
+    private static function maybeAutoFetchToday(): void
+    {
+        try {
+            $db = Database::get();
+            $has = (int)$db->query(
+                "SELECT COUNT(*) c FROM current_affairs WHERE ca_date = CURDATE()")->fetch()['c'];
+            if ($has > 0) return;
+            CronCAController::runFetch();
+        } catch (\Throwable $e) {
+            // Best-effort only — auto-fetch failing should never break the list endpoint.
+        }
+    }
+
     /** GET /api/current-affairs?month=2026-07&tn=1&category=&limit= */
     public static function list(): void
     {
+        self::maybeAutoFetchToday();
+
         $where = ['is_active = 1'];
         $args = [];
         if (!empty($_GET['month']) && preg_match('/^\d{4}-\d{2}$/', $_GET['month'])) {
@@ -19,7 +43,7 @@ class CAController
         if (!empty($_GET['category'])) { $where[] = 'category = ?'; $args[] = $_GET['category']; }
         $limit = min(200, max(1, (int)($_GET['limit'] ?? 100)));
         $stmt = Database::get()->prepare(
-            'SELECT id, ca_date, category, title_ta, title_en, content_ta, content_en, is_tn, source_url
+            'SELECT id, ca_date, category, title_ta, title_en, content_ta, content_en, is_tn, source_url, image_url
              FROM current_affairs WHERE ' . implode(' AND ', $where) .
             " ORDER BY ca_date DESC, is_tn DESC, id DESC LIMIT $limit");
         $stmt->execute($args);
@@ -70,12 +94,13 @@ class CAController
             return;
         }
         $stmt = Database::get()->prepare(
-            'INSERT INTO current_affairs (ca_date, category, title_ta, title_en, content_ta, content_en, is_tn, source_url)
-             VALUES (?,?,?,?,?,?,?,?)');
+            'INSERT INTO current_affairs (ca_date, category, title_ta, title_en, content_ta, content_en, is_tn, source_url, image_url)
+             VALUES (?,?,?,?,?,?,?,?,?)');
         $stmt->execute([$b['ca_date'], $b['category'] ?? 'general',
             trim($b['title_ta']), trim($b['title_en'] ?? ''),
             trim($b['content_ta'] ?? ''), trim($b['content_en'] ?? ''),
-            !empty($b['is_tn']) ? 1 : 0, trim($b['source_url'] ?? '')]);
+            !empty($b['is_tn']) ? 1 : 0, trim($b['source_url'] ?? ''),
+            trim($b['image_url'] ?? '') ?: null]);
         echo json_encode(['ok' => true, 'id' => Database::get()->lastInsertId()]);
     }
 }
