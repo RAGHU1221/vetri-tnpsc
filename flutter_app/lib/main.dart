@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'src/providers/app_provider.dart';
 import 'src/router.dart';
 import 'src/services/notification_service.dart';
+import 'src/services/question_service.dart';
 
 // வெற்றி TNPSC theme — report design (ink indigo + gold + leaf green)
 const ink = Color(0xFF14213D);
@@ -30,8 +31,36 @@ void main() async {
     );
 }
 
-class VetriApp extends StatelessWidget {
+class VetriApp extends StatefulWidget {
   const VetriApp({super.key});
+
+  @override
+  State<VetriApp> createState() => _VetriAppState();
+}
+
+class _VetriAppState extends State<VetriApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // User admin panel-la questions import pannittu app-ku thirumba
+    // varum bothu (background -> foreground), old in-memory cache-a
+    // clear pannitu, next screen build-la automatic-a fresh questions
+    // server-la irundhu vandhudum — app restart pannanum nu illa.
+    if (state == AppLifecycleState.resumed) {
+      QuestionService.clearCache();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
