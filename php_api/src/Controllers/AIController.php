@@ -7,7 +7,10 @@ use App\Core\JWT;
 class AIController
 {
     private const DAILY_LIMIT = 30; // per user per day
-    private const MODEL = 'sarvamai/sarvam-m';
+    private const MODEL = 'google/gemma-4-31b-it'; // Indic-language reasoning model —
+                                                // far better Tamil quality than
+                                                // llama-3.1-8b-instruct, which was
+                                                // hallucinating on Tamil history topics.
     private const ENDPOINT = 'https://integrate.api.nvidia.com/v1/chat/completions';
 
     private static function checkLimit(int $uid): bool
@@ -20,15 +23,17 @@ class AIController
 
     private static function callNvidia(array $messages): ?string
     {
-        $key = getenv('NVIDIA_API_KEY');
+        // SECURITY: no hardcoded fallback key — must come from env only.
+        // A leaked key in source code is a real risk once code is pushed to GitHub.
+        $key = Database::nvidiaApiKey();
         if (!$key) return null;
         $payload = json_encode([
             'model' => self::MODEL,
             'messages' => $messages,
-            'max_tokens' => 1536, // sarvam-m is a reasoning model — needs room to
-                                  // "think" internally before the final answer;
-                                  // 600 was cutting responses off mid-thought.
-            'temperature' => 0.4,
+            'max_tokens' => 1536,
+            'temperature' => 0.3,
+            'frequency_penalty' => 0.7,
+            'presence_penalty' => 0.4,
         ], JSON_UNESCAPED_UNICODE);
         $ch = curl_init(self::ENDPOINT);
         curl_setopt_array($ch, [
@@ -48,15 +53,8 @@ class AIController
         $content = $data['choices'][0]['message']['content'] ?? null;
         if ($content === null) return null;
 
-        // sarvam-m emits its internal reasoning wrapped in <think>...</think>
-        // before the real answer. Strip it — the user should only ever see
-        // the final answer, never the model's scratch-work.
-        $content = preg_replace('/<think>.*?<\/think>/s', '', $content);
-        $content = trim($content);
-
-        // Safety net: if the whole reply was reasoning with no closing tag
-        // (got cut off mid-thought even at the higher token limit), don't
-        // show the garbled partial trace — ask the user to retry instead.
+        // Remove any accidental reasoning wrapper before returning text to the app.
+        $content = trim(preg_replace('/<think>.*?<\/think>/s', '', $content));
         if ($content === '' || str_contains($content, '<think>')) {
             return 'மன்னிக்கவும், பதில் முழுமையாக கிடைக்கவில்லை. மீண்டும் கேளுங்கள் 🙏';
         }
@@ -73,7 +71,10 @@ class AIController
           . 'வரலாற்று விவரங்கள் பற்றி உறுதியாகத் தெரியாவிட்டால், அதை ஒருபோதும் கற்பனை செய்து '
           . 'பதிலளிக்காதீர்கள் — பொருத்தமற்ற எண்கள், தொடர்பில்லாத பெயர்கள் அல்லது தவறான தகவலை '
           . 'உருவாக்குவதைவிட "இதற்கான உறுதியான தகவல் என்னிடம் இல்லை, சமச்சீர் பாடநூல்/நம்பகமான '
-          . 'மூலத்தில் சரிபார்க்கவும்" என நேர்மையாகக் கூறுங்கள்.'];
+          . 'மூலத்தில் சரிபார்க்கவும்" என நேர்மையாகக் கூறுங்கள். '
+          . 'முக்கியம்: ஒரே வாக்கியத்தையோ கருத்தையோ மீண்டும் மீண்டும் சொல்லாதீர்கள் — '
+          . 'ஒவ்வொரு வாக்கியமும் புதிய தகவலைச் சேர்க்க வேண்டும். நேரடியாக பதிலைத் தொடங்குங்கள், '
+          . '"இதை விளக்குவதற்கு..." போன்ற முன்னுரை தேவையில்லை.'];
     }
 
     /** POST /api/ai/chat — {messages:[{role,content},...]} */
