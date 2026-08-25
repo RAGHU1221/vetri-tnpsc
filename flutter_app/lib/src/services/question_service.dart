@@ -21,7 +21,7 @@ class Question {
   Question.fromJson(Map<String, dynamic> j)
       : id = j['id'],
         groupExam = j['group_exam'] ?? 'G4',
-        subject = j['subject'],
+        subject = _normalizeSubject(j['subject']),
         unit = j['unit'] ?? '',
         questionTa = j['question_ta'],
         questionEn = j['question_en'] ?? '',
@@ -49,6 +49,28 @@ class Question {
         explanationEn = j['explanation_en'],
         yearsAsked = List<String>.from(j['years_asked'] ?? []),
         repeatCount = j['repeat_count'] ?? (j['years_asked']?.length ?? 0);
+
+  /// DB-la subject column-ku Tamil-script vs English-spelling variants
+  /// (e.g. "தமிழ்" vs "tamil") separate values-a store aagi, app-la
+  /// rendum vera vera map keys-a split aagi silent-a hide aaguthu.
+  /// Idha thavirkka, load pannumbodhே canonical (English) spelling-ku
+  /// normalize pannurom — DB-la future-la இதே மாதிரி typo/variant
+  /// vandhalum UI break aagaadhu.
+  static String _normalizeSubject(String raw) {
+    const map = {
+      'தமிழ்': 'tamil',
+      // Future-la இதே மாதிரி Tamil-script duplicate subject values
+      // kandupidichaal, இங்க add pannunga:
+      // 'பொருளாதாரம்': 'economy',
+      // 'வரலாறு': 'history',
+      // 'புவியியல்': 'geography',
+      // 'அறிவியல்': 'science',
+      // 'அரசியல்': 'polity',
+      // 'நடப்பு நிகழ்வுகள்': 'current_affairs',
+      // 'திறன்': 'aptitude',
+    };
+    return map[raw] ?? raw;
+  }
 
   /// 🔥 3+, ⭐ 2, none otherwise
   String get importanceBadge =>
