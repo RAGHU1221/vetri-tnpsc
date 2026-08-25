@@ -1,0 +1,18 @@
+UPDATED FILES TO UPLOAD/REPLACE
+
+Replace these files in your existing project, preserving the paths:
+
+ROOT/index.php              -> your project root/index.php
+ROOT/.htaccess              -> your project root/.htaccess
+ROOT/CONFIG_NO_ENV.md       -> optional documentation
+src/Config/Database.php     -> src/Config/Database.php
+src/Config/Secrets.php      -> NEW: src/Config/Secrets.php
+src/Core/JWT.php            -> src/Core/JWT.php
+src/Controllers/AIController.php -> src/Controllers/AIController.php
+src/Controllers/CronCAController.php -> src/Controllers/CronCAController.php
+
+IMPORTANT:
+1. Do NOT upload php_api/.env.example.
+2. Do NOT upload or commit any NVIDIA API key to GitHub.
+3. Put your NEW NVIDIA API key only in src/Config/Secrets.php as instructed.
+4. Keep all other existing project files unchanged.
