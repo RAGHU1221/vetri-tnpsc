@@ -1,3 +1,25 @@
+# Block direct access to .env (and any dotfile) — must come before the
+# rewrite rule below, otherwise anyone could open https://yourdomain/.env
+# in a browser and read DB password / JWT secret / API keys as plain text.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
 RewriteEngine On
+
+# Block direct access to application source/config files.
+RewriteRule ^(?:src|php_api)/ - [F,L]
+
+# Explicitly forward the Authorization header into PHP's $_SERVER as
+# HTTP_AUTHORIZATION. Many Apache/CGI/FastCGI configs (this hosting panel
+# included) strip the Authorization header before PHP ever sees it — the
+# browser sends it correctly, JWT sign/verify both work correctly in
+# isolation, but $_SERVER['HTTP_AUTHORIZATION'] (and even the
+# REDIRECT_HTTP_AUTHORIZATION fallback) end up empty, so every protected
+# API route (admin stats, notifications, etc.) sees "no token" and returns
+# 401 even right after a successful login. This line is the actual fix.
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^ index.php [QSA,L]

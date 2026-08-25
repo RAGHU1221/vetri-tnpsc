@@ -1,8 +1,42 @@
 <?php
 // வெற்றி TNPSC API — Phase 1
+
+// Optional .env loader — no Composer/phpdotenv needed. Reads KEY=VALUE lines
+// from a real .env file on disk and exposes them through getenv()/putenv(),
+// the exact interface Database.php, CronCAController.php etc already use.
+// This is a SAFE ADD-ON: it never overwrites a key that already resolves
+// via getenv() (e.g. DB_HOST already working through the hosting panel) —
+// it only fills in keys that are currently missing (CRON_SECRET,
+// NVIDIA_API_KEY). Looks in both the same folder as this file and one
+// level up, so it works whichever way this app was deployed on the server.
+foreach ([__DIR__ . '/.env', __DIR__ . '/../.env'] as $envFile) {
+    if (!is_file($envFile)) continue;
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) continue;
+        [$k, $v] = explode('=', $line, 2);
+        $k = trim($k);
+        $v = trim($v, " \t\n\r\0\x0B\"'");
+        if ($k !== '' && getenv($k) === false) {
+            putenv("$k=$v");
+            $_ENV[$k] = $v;
+        }
+    }
+    break; // first .env file found wins
+}
+
+// Autoloader — tries index.php's OWN folder first (src/ as a direct
+// sibling of index.php), then one level up (src/ as a sibling of the
+// folder that contains index.php). This makes class loading work no
+// matter which of the two ever gets used on this hosting panel, instead
+// of hard-assuming one fixed layout — a layout mismatch here previously
+// caused "Class not found" fatal errors on EVERY route (including
+// login), since Router itself failed to autoload.
 spl_autoload_register(function ($class) {
-    $path = __DIR__ . '/../' . str_replace(['App\\', '\\'], ['src/', '/'], $class) . '.php';
-    if (file_exists($path)) require $path;
+    $rel = str_replace(['App\\', '\\'], ['src/', '/'], $class) . '.php';
+    foreach ([__DIR__ . '/' . $rel, __DIR__ . '/../' . $rel] as $path) {
+        if (file_exists($path)) { require $path; return; }
+    }
 });
 
 use App\Core\Router;
