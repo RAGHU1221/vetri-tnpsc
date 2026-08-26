@@ -35,7 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const guideKeyMap = {'G4': 'tnpsc_g4', 'G2A': 'tnpsc_g2a', 'NMMS': 'nmms', 'G1': 'tnpsc_g1'};
     final syllabusRoute = '/guide/${guideKeyMap[app.examGroup] ?? 'tnpsc_g4'}';
     final tiles = [
-      (Icons.menu_book_rounded, ta ? 'பாடத்திட்டம்' : 'Syllabus', '/syllabus',
+      (Icons.menu_book_rounded, ta ? 'பாடத்திட்டம்' : 'Syllabus', syllabusRoute,
           const [Color(0xFF3E6FB0), Color(0xFF2A4F82)]),
       (Icons.quiz_rounded, ta ? 'கேள்வி வங்கி' : 'Question Bank', '/syllabus',
           const [Color(0xFFC9971C), Color(0xFFA87A12)]),
@@ -47,7 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const [Color(0xFF2E7D4F), Color(0xFF1F5C38)]),
       (Icons.emoji_events_rounded, ta ? 'முன்னேற்றம்' : 'Progress', '/progress',
           const [Color(0xFF14213D), Color(0xFF0D1830)]),
-      (Icons.explore_rounded, ta ? 'வழிகாட்டி' : 'Guide', syllabusRoute,
+      (Icons.explore_rounded, ta ? 'வழிகாட்டி' : 'Guide', '/guide',
           const [Color(0xFF1B8A96), Color(0xFF13636C)]),
       (Icons.notifications_active_rounded, ta ? 'அறிவிப்புகள்' : 'Notifications', '/notifications',
           const [Color(0xFFD97B29), Color(0xFFA85E1D)]),
