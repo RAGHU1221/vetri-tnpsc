@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
-import 'api_service.dart';
 
 class ExamGuide {
   final String examKey, category, icon, colorHex;
@@ -51,12 +50,13 @@ class GuideService {
 
   static Future<List<ExamGuide>> loadAll() async {
     if (_cache != null) return _cache!;
-    try {
-      final res = await ApiService.instance.dio.get('/api/guides');
-      // list endpoint returns summary only; still usable for list screen
-    } catch (_) {
-      // offline fallback below
-    }
+    // Guide content (syllabus, eligibility, exam pattern, etc.) is served
+    // from the bundled asset. The /api/guides list endpoint only returns
+    // summary fields (no syllabus/eligibility/exam_pattern), so it can't
+    // fully populate ExamGuide — using it here would silently blank out
+    // those sections on the detail screen. Until a live endpoint returns
+    // the full guide payload, the bundled asset is the single source of
+    // truth; update assets/data/exam_guides.json to change guide content.
     try {
       final raw = await rootBundle.loadString('assets/data/exam_guides.json');
       final list = (jsonDecode(raw) as List).map((g) => ExamGuide.fromJson(g)).toList();
