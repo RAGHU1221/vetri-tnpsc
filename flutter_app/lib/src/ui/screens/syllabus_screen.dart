@@ -1,242 +1,188 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:flutter/services.dart' show rootBundle;
-import 'api_service.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../providers/app_provider.dart';
+import '../../services/question_service.dart';
 
-class Question {
-  final int id;
-  final String groupExam;
-  final String subject, unit, questionTa, questionEn;
-  final String format; // simple | match_table | assertion_reason
-  final List<String>? tableList1Ta, tableList2Ta, tableList1En, tableList2En;
-  final String? assertionTa, assertionEn, reasonTa, reasonEn;
-  final String? imageUrl;
-  final bool sourceVerified;
-  final List<String> optionsTa, optionsEn;
-  final int correct;
-  final String? bookTa, explanationTa, explanationEn;
-  final int? pageNo;
-  final List<String> yearsAsked;
-  final int repeatCount;
+class SyllabusScreen extends StatefulWidget {
+  const SyllabusScreen({super.key});
 
-  Question.fromJson(Map<String, dynamic> j)
-      : id = j['id'],
-        groupExam = j['group_exam'] ?? 'G4',
-        subject = _normalizeSubject(j['subject']),
-        unit = j['unit'] ?? '',
-        questionTa = j['question_ta'],
-        questionEn = j['question_en'] ?? '',
-        format = j['question_format'] ?? j['format'] ?? 'simple',
-        tableList1Ta = (j['table_data']?['list1_ta'] as List?)?.cast<String>() ??
-            (j['table_list1_ta'] as List?)?.cast<String>(),
-        tableList2Ta = (j['table_data']?['list2_ta'] as List?)?.cast<String>() ??
-            (j['table_list2_ta'] as List?)?.cast<String>(),
-        tableList1En = (j['table_data']?['list1_en'] as List?)?.cast<String>() ??
-            (j['table_list1_en'] as List?)?.cast<String>(),
-        tableList2En = (j['table_data']?['list2_en'] as List?)?.cast<String>() ??
-            (j['table_list2_en'] as List?)?.cast<String>(),
-        assertionTa = j['assertion_ta'],
-        assertionEn = j['assertion_en'],
-        reasonTa = j['reason_ta'],
-        reasonEn = j['reason_en'],
-        imageUrl = j['image_url'],
-        sourceVerified = (j['source_verified'] ?? 0).toString() == '1',
-        optionsTa = List<String>.from(j['options_ta']),
-        optionsEn = List<String>.from(j['options_en'] ?? []),
-        correct = j['correct'] ?? j['correct_option'],
-        bookTa = j['book_ta'] ?? j['book_name_ta'],
-        pageNo = j['page_no'],
-        explanationTa = j['explanation_ta'],
-        explanationEn = j['explanation_en'],
-        yearsAsked = List<String>.from(j['years_asked'] ?? []),
-        repeatCount = j['repeat_count'] ?? (j['years_asked']?.length ?? 0);
+  static const names = {
+    'tamil': ('பொதுத் தமிழ்', 'General Tamil'),
+    'history': ('வரலாறு', 'History'),
+    'polity': ('இந்திய அரசியல்', 'Indian Polity'),
+    'geography': ('புவியியல்', 'Geography'),
+    'economy': ('பொருளாதாரம்', 'Economy'),
+    'science': ('பொது அறிவியல்', 'General Science'),
+    'current_affairs': ('நடப்பு நிகழ்வுகள்', 'Current Affairs'),
+    'aptitude': ('திறனறிவு', 'Aptitude'),
+  };
 
-  /// DB-la subject column-ku Tamil-script vs English-spelling variants
-  /// (e.g. "தமிழ்" vs "tamil") separate values-a store aagi, app-la
-  /// rendum vera vera map keys-a split aagi silent-a hide aaguthu.
-  /// Idha thavirkka, load pannumbodhே canonical (English) spelling-ku
-  /// normalize pannurom — DB-la future-la இதே மாதிரி typo/variant
-  /// vandhalum UI break aagaadhu.
-  static String _normalizeSubject(String raw) {
-    const map = {
-      'தமிழ்': 'tamil',
-      // Future-la இதே மாதிரி Tamil-script duplicate subject values
-      // kandupidichaal, இங்க add pannunga:
-      // 'பொருளாதாரம்': 'economy',
-      // 'வரலாறு': 'history',
-      // 'புவியியல்': 'geography',
-      // 'அறிவியல்': 'science',
-      // 'அரசியல்': 'polity',
-      // 'நடப்பு நிகழ்வுகள்': 'current_affairs',
-      // 'திறன்': 'aptitude',
-    };
-    return map[raw] ?? raw;
-  }
+  static const _icons = {
+    'tamil': Icons.translate_rounded,
+    'history': Icons.account_balance_rounded,
+    'polity': Icons.gavel_rounded,
+    'geography': Icons.public_rounded,
+    'economy': Icons.currency_rupee_rounded,
+    'science': Icons.science_rounded,
+    'current_affairs': Icons.newspaper_rounded,
+    'aptitude': Icons.calculate_rounded,
+  };
 
-  /// 🔥 3+, ⭐ 2, none otherwise
-  String get importanceBadge =>
-      repeatCount >= 3 ? '🔥' : (repeatCount == 2 ? '⭐' : '');
+  static const _colors = {
+    'tamil': [Color(0xFFB33A2B), Color(0xFF8C2A1F)],
+    'history': [Color(0xFFC9971C), Color(0xFFA87A12)],
+    'polity': [Color(0xFF3E6FB0), Color(0xFF2A4F82)],
+    'geography': [Color(0xFF2E7D4F), Color(0xFF1F5C38)],
+    'economy': [Color(0xFF6B4FA0), Color(0xFF4E3878)],
+    'science': [Color(0xFF1B8A96), Color(0xFF13636C)],
+    'current_affairs': [Color(0xFFD97B29), Color(0xFFA85E1D)],
+    'aptitude': [Color(0xFF14213D), Color(0xFF0D1830)],
+  };
+
+  @override
+  State<SyllabusScreen> createState() => _SyllabusScreenState();
 }
 
-class QuestionService {
-  static List<Question>? _cache;
+class _SyllabusScreenState extends State<SyllabusScreen> {
+  Future<Map<String, List<Question>>>? _future;
 
-  /// The real exception from the last failed live fetch, if the app had to
-  /// fall back to the bundled seed asset. Null when the last load came
-  /// from the live server successfully. Screens can show this on-screen
-  /// (SnackBar/banner) so the actual cause is visible on the phone itself,
-  /// without needing adb logcat / a computer.
-  static String? lastError;
-
-  /// True if the questions currently in memory came from the bundled
-  /// offline seed file rather than the live server (i.e. the counts you
-  /// see may be outdated / missing recent admin imports).
-  static bool usedSeedFallback = false;
-
-  /// Admin panel-la import pannadhum, already-running app-oda cache-a
-  /// force clear panna. Aprom loadSeed()/bySubject() next call automatic-a
-  /// server-kitta fresh data eduthukum.
-  static void clearCache() => _cache = null;
-
-  /// Cache clear panni udane server-la irundhu fresh-a reload pannum.
-  static Future<List<Question>> refresh() {
-    clearCache();
-    return loadSeed();
+  @override
+  void initState() {
+    super.initState();
+    _future = QuestionService.bySubject(
+        groupExam: context.read<AppProvider>().examGroup);
+    // Erst frame render aana udane, live data illama seed fallback-a
+    // irundhaa (app open panna udanae), andha real reason-a screen-la
+    // காட்டு — adb/computer illama exact bug-a phone-lame பாக்கலாம்.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showFallbackWarningIfAny());
   }
 
-  /// Server-first (latest + admin-imported); seed JSON fallback offline
-  static Future<List<Question>> loadSeed() async {
-    if (_cache != null) return _cache!;
+  Future<void> _refresh() async {
+    setState(() {
+      _future = QuestionService.refresh().then(
+          (_) => QuestionService.bySubject(groupExam: context.read<AppProvider>().examGroup));
+    });
+    await _future;
+    _showFallbackWarningIfAny();
+  }
 
-    try {
-      // Loop through pages of 500 (server's max per-request cap) until every
-      // question is fetched — works correctly no matter how many questions
-      // exist in the DB now or after future imports (871, 2000, etc.).
-      final all = <Question>[];
-      const pageSize = 500;
-      int offset = 0;
-      var skipped = 0;
+  void _showFallbackWarningIfAny() {
+    if (!mounted) return;
+    if (QuestionService.usedSeedFallback) {
+      final ta = context.read<AppProvider>().isTamil;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 10),
+          backgroundColor: const Color(0xFFB33A2B),
+          content: Text(
+            ta
+                ? 'Live data கிடைக்கல — பழைய offline data காட்டுது.\n${QuestionService.lastError ?? ''}'
+                : 'Could not reach live server — showing old offline data.\n${QuestionService.lastError ?? ''}',
+            style: const TextStyle(fontSize: 12.5),
+          ),
+        ),
+      );
+    }
+  }
 
-      while (true) {
-        final res = await ApiService.instance.dio.get(
-          '/api/questions',
-          queryParameters: {
-            'limit': pageSize,
-            'offset': offset,
-          },
-        );
-
-        final rawPage = res.data['questions'] as List;
-
-        // Parse each row individually — a single malformed/unexpected row
-        // (missing field, new admin-import edge case, etc.) used to throw
-        // inside .map() and abort the ENTIRE fetch, silently falling back
-        // to the old bundled seed JSON for ALL groups/subjects. Now we
-        // skip just that one row and keep the rest of the (correct) live
-        // data, and log exactly which question id + error caused it so
-        // it can be fixed at the source (import script / DB row).
-        for (final j in rawPage) {
-          try {
-            all.add(
-              Question.fromJson(j as Map<String, dynamic>),
-            );
-          } catch (e) {
-            skipped++;
-
-            debugPrint(
-              'QuestionService: skipped malformed question '
-              'id=${j is Map ? j['id'] : '?'} — $e',
-            );
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
+    final ta = app.isTamil;
+    return Scaffold(
+      backgroundColor: const Color(0xFFFBF7EE),
+      appBar: AppBar(
+          title: Text(ta
+              ? 'பாடத்திட்டம் · ${app.examGroupLabelTa}'
+              : 'Syllabus · ${app.examGroupLabelEn}'),
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: ta ? 'புதுப்பிக்க' : 'Refresh',
+              onPressed: _refresh,
+            ),
+          ]),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: FutureBuilder(
+        future: _future,
+        builder: (context, snap) {
+          if (!snap.hasData) {
+            return const Center(child: CircularProgressIndicator());
           }
-        }
-
-        if (rawPage.length < pageSize) {
-          break;
-        }
-
-        offset += pageSize;
-      }
-
-      if (skipped > 0) {
-        debugPrint(
-          'QuestionService: loaded ${all.length} questions, '
-          'skipped $skipped malformed rows '
-          '(see logs above for ids)',
-        );
-      }
-
-      if (all.isNotEmpty) {
-        lastError = null;
-        usedSeedFallback = false;
-        return _cache = all;
-      }
-    } catch (e, st) {
-      // Network/API-level failure (server down, timeout, auth, etc.) —
-      // fall back to bundled seed asset. Stored in lastError so a screen
-      // can show it on-screen (no adb/computer needed to see why).
-      lastError = e.toString();
-
-      debugPrint(
-        'QuestionService: live fetch failed, '
-        'falling back to bundled seed — $e',
-      );
-
-      debugPrint('$st');
-    }
-
-    usedSeedFallback = true;
-
-    try {
-      final raw = await rootBundle.loadString(
-        'assets/data/questions_seed.json',
-      );
-
-      final data = jsonDecode(raw) as Map<String, dynamic>;
-      final seedList = data['questions'] as List;
-      final seedQuestions = <Question>[];
-
-      for (final q in seedList) {
-        try {
-          seedQuestions.add(
-            Question.fromJson(q as Map<String, dynamic>),
+          final subjects = snap.data!;
+          return ListView(
+            padding: const EdgeInsets.all(14),
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              for (final entry in subjects.entries)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 9, offset: const Offset(0, 3)),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(15),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(15),
+                      onTap: () => context.push('/questions/${entry.key}'),
+                      child: Padding(
+                        padding: const EdgeInsets.all(13),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48, height: 48,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(13),
+                                gradient: LinearGradient(
+                                    colors: SyllabusScreen._colors[entry.key] ?? const [Color(0xFF2E7D4F), Color(0xFF1F5C38)],
+                                    begin: Alignment.topLeft, end: Alignment.bottomRight),
+                              ),
+                              child: Icon(SyllabusScreen._icons[entry.key] ?? Icons.folder_open,
+                                  color: Colors.white, size: 24),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                      ta
+                                          ? (SyllabusScreen.names[entry.key]?.$1 ?? entry.key)
+                                          : (SyllabusScreen.names[entry.key]?.$2 ?? entry.key),
+                                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                                  const SizedBox(height: 3),
+                                  Text(ta
+                                      ? '${entry.value.length} கேள்விகள்'
+                                      : '${entry.value.length} questions',
+                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5)),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                  color: const Color(0xFFF1ECDD), shape: BoxShape.circle),
+                              child: const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF14213D)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           );
-        } catch (e) {
-          debugPrint(
-            'QuestionService: skipped malformed seed question — $e',
-          );
-        }
-      }
-
-      _cache = seedQuestions;
-      return _cache!;
-    } catch (e) {
-      // Bundled seed missing/unreadable and API unreachable — return empty
-      // rather than crash; screens should handle an empty question list.
-      lastError = e.toString();
-
-      debugPrint(
-        'QuestionService: bundled seed also failed to load — $e',
-      );
-
-      return _cache = [];
-    }
-  }
-
-  static Future<Map<String, List<Question>>> bySubject({
-    String? groupExam,
-  }) async {
-    final all = await loadSeed();
-
-    final filtered = groupExam == null
-        ? all
-        : all.where((q) => q.groupExam == groupExam).toList();
-
-    final map = <String, List<Question>>{};
-
-    for (final q in filtered) {
-      map.putIfAbsent(q.subject, () => []).add(q);
-    }
-
-    return map;
+        },
+        ),
+      ),
+    );
   }
 }
