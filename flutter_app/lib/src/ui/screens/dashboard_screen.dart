@@ -5,6 +5,7 @@ import '../../providers/app_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/stats_service.dart';
 import '../../services/job_notification_service.dart';
+import '../../services/question_service.dart';
 import '../widgets/vetri_buttons.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int? _streak;
   int _openNotifCount = 0;
+  bool _syncing = false;
 
   @override
   void initState() {
@@ -26,6 +28,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
     JobNotificationService.fetchAll().then((list) {
       if (mounted) setState(() => _openNotifCount = list.where((n) => n.status == 'open').length);
     });
+  }
+
+  /// Force-fetches the latest questions from the live server (bypassing
+  /// whatever was cached in memory) and reports the real outcome — how
+  /// many questions actually loaded, or the exact error if it fell back
+  /// to offline data — right here on the dashboard. No need to hunt for
+  /// a refresh icon on another screen to find out whether a sync worked.
+  Future<void> _sync() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    final ta = context.read<AppProvider>().isTamil;
+    try {
+      final questions = await QuestionService.refresh();
+      if (!mounted) return;
+      if (QuestionService.usedSeedFallback) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 8),
+          backgroundColor: const Color(0xFFB33A2B),
+          content: Text(ta
+              ? 'Sync தோல்வி — server-ஐ அடைய முடியல, பழைய offline data (${questions.length}) காட்டுது.\n${QuestionService.lastError ?? ''}'
+              : 'Sync failed — could not reach the server, showing old offline data (${questions.length}).\n${QuestionService.lastError ?? ''}'),
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          duration: const Duration(seconds: 4),
+          backgroundColor: const Color(0xFF2E7D4F),
+          content: Text(ta
+              ? 'Sync ஆச்சு — ${questions.length} கேள்விகள் load ஆச்சு ✓'
+              : 'Synced — ${questions.length} questions loaded ✓'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   @override
@@ -70,6 +106,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
         ]),
         actions: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              VetriIconButton(
+                icon: Icons.sync_rounded,
+                bg: const Color(0xFF1B8A96),
+                size: 40,
+                onTap: _syncing ? () {} : _sync,
+              ),
+              if (_syncing)
+                const Positioned.fill(
+                  child: Center(
+                    child: SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 10),
           Stack(
             clipBehavior: Clip.none,
             children: [
