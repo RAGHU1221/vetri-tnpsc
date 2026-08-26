@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show rootBundle;
 import 'api_service.dart';
 
@@ -80,6 +81,18 @@ class Question {
 class QuestionService {
   static List<Question>? _cache;
 
+  /// The real exception from the last failed live fetch, if the app had to
+  /// fall back to the bundled seed asset. Null when the last load came
+  /// from the live server successfully. Screens can show this on-screen
+  /// (SnackBar/banner) so the actual cause is visible on the phone itself,
+  /// without needing adb logcat / a computer.
+  static String? lastError;
+
+  /// True if the questions currently in memory came from the bundled
+  /// offline seed file rather than the live server (i.e. the counts you
+  /// see may be outdated / missing recent admin imports).
+  static bool usedSeedFallback = false;
+
   /// Admin panel-la import pannadhum, already-running app-oda cache-a
   /// force clear panna. Aprom loadSeed()/bySubject() next call automatic-a
   /// server-kitta fresh data eduthukum.
@@ -101,30 +114,66 @@ class QuestionService {
       final all = <Question>[];
       const pageSize = 500;
       int offset = 0;
+      var skipped = 0;
       while (true) {
         final res = await ApiService.instance.dio.get('/api/questions',
             queryParameters: {'limit': pageSize, 'offset': offset});
-        final page = (res.data['questions'] as List)
-            .map((j) => Question.fromJson(j))
-            .toList();
-        all.addAll(page);
-        if (page.length < pageSize) break; // last page reached
+        final rawPage = res.data['questions'] as List;
+        // Parse each row individually — a single malformed/unexpected row
+        // (missing field, new admin-import edge case, etc.) used to throw
+        // inside .map() and abort the ENTIRE fetch, silently falling back
+        // to the old bundled seed JSON for ALL groups/subjects. Now we
+        // skip just that one row and keep the rest of the (correct) live
+        // data, and log exactly which question id + error caused it so
+        // it can be fixed at the source (import script / DB row).
+        for (final j in rawPage) {
+          try {
+            all.add(Question.fromJson(j as Map<String, dynamic>));
+          } catch (e) {
+            skipped++;
+            debugPrint(
+                'QuestionService: skipped malformed question id=${j is Map ? j['id'] : '?'} — $e');
+          }
+        }
+        if (rawPage.length < pageSize) break; // last page reached
         offset += pageSize;
       }
-      if (all.isNotEmpty) return _cache = all;
-    } catch (_) {
-      // offline / cold start — seed asset fallback
+      if (skipped > 0) {
+        debugPrint('QuestionService: loaded ${all.length} questions, skipped $skipped malformed rows (see logs above for ids)');
+      }
+      if (all.isNotEmpty) {
+        lastError = null;
+        usedSeedFallback = false;
+        return _cache = all;
+      }
+    } catch (e, st) {
+      // Network/API-level failure (server down, timeout, auth, etc.) —
+      // fall back to bundled seed asset. Stored in lastError so a screen
+      // can show it on-screen (no adb/computer needed to see why).
+      lastError = e.toString();
+      debugPrint('QuestionService: live fetch failed, falling back to bundled seed — $e');
+      debugPrint('$st');
     }
+    usedSeedFallback = true;
     try {
       final raw = await rootBundle.loadString('assets/data/questions_seed.json');
       final data = jsonDecode(raw) as Map<String, dynamic>;
-      _cache = (data['questions'] as List)
-          .map((q) => Question.fromJson(q))
-          .toList();
+      final seedList = data['questions'] as List;
+      final seedQuestions = <Question>[];
+      for (final q in seedList) {
+        try {
+          seedQuestions.add(Question.fromJson(q as Map<String, dynamic>));
+        } catch (e) {
+          debugPrint('QuestionService: skipped malformed seed question — $e');
+        }
+      }
+      _cache = seedQuestions;
       return _cache!;
-    } catch (_) {
+    } catch (e) {
       // Bundled seed missing/unreadable and API unreachable — return empty
       // rather than crash; screens should handle an empty question list.
+      lastError = e.toString();
+      debugPrint('QuestionService: bundled seed also failed to load — $e');
       return _cache = [];
     }
   }
