@@ -22,6 +22,36 @@ String _cleanExplanation(String raw) {
   return kept.join('\n\n').trim();
 }
 
+/// The explanation body often embeds its own "உதாரணங்கள்:" (Examples) block
+/// — and it's usually the MORE COMPLETE list (e.g. 11 items) compared to
+/// the separate important_points_ta field (which can be a trimmed subset,
+/// e.g. only 9 of those same 11). Rather than show a shorter duplicate
+/// list under "Important Points"/"Examples", this pulls the fuller list
+/// straight out of the explanation text itself.
+List<String> _extractRawExamples(String explanation) {
+  for (final p in explanation.split(RegExp(r'\n\s*\n'))) {
+    final t = p.trim();
+    if (t.startsWith('உதாரணங்கள்')) {
+      final lines = t.split('\n').skip(1);
+      return lines.map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    }
+  }
+  return [];
+}
+
+/// Removes that same "உதாரணங்கள்:" block from the explanation body once its
+/// items have been captured above — avoids showing the same examples twice
+/// (once loose in the explanation prose, once as a proper numbered list).
+String _removeRawExamplesBlock(String explanation) {
+  final kept = explanation.split(RegExp(r'\n\s*\n')).where((p) => !p.trim().startsWith('உதாரணங்கள்'));
+  return kept.join('\n\n').trim();
+}
+
+/// Numbers a list of example/point strings consistently regardless of
+/// whether the source already had its own "1. " prefix — strips any
+/// existing leading number first so re-numbering never doubles up.
+String _stripLeadingNumber(String s) => s.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+
 class LessonDetailScreen extends StatefulWidget {
   final int lessonId;
   const LessonDetailScreen({super.key, required this.lessonId});
@@ -66,6 +96,15 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           final l = snap.data!;
+          final cleanedExp = _cleanExplanation(l.explanationTa ?? '');
+          final rawExamples = _extractRawExamples(cleanedExp);
+          final finalExplanation = _removeRawExamplesBlock(cleanedExp);
+          // Prefer the fuller list pulled from the explanation body itself
+          // (rawExamples) — falls back to importantPointsList only for
+          // lessons whose explanation never embedded its own list.
+          final examplesForCard = (rawExamples.isNotEmpty ? rawExamples : l.importantPointsList)
+              .map(_stripLeadingNumber)
+              .toList();
           return CustomScrollView(
             slivers: [
               SliverAppBar(
@@ -104,29 +143,35 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                         icon: Icons.menu_book_rounded,
                         color: const Color(0xFF3E6FB0),
                         title: ta ? 'விளக்கம்' : 'Explanation',
-                        child: Text(_cleanExplanation(l.explanationTa!),
+                        child: Text(finalExplanation,
                             style: const TextStyle(fontSize: 15.5, height: 1.65, color: Color(0xFF14213D))),
                       ),
-                    if (l.importantPointsList.isNotEmpty)
+                    if (examplesForCard.isNotEmpty)
                       _SectionCard(
                         icon: Icons.star_rounded,
                         color: const Color(0xFFD97B29),
-                        title: ta ? 'முக்கிய குறிப்புகள்' : 'Important Points',
+                        title: ta ? 'உதாரணங்கள்' : 'Examples',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: l.importantPointsList
-                              .map((p) => Padding(
+                          children: examplesForCard
+                              .asMap()
+                              .entries
+                              .map((e) => Padding(
                                     padding: const EdgeInsets.only(bottom: 8),
                                     child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Padding(
-                                          padding: EdgeInsets.only(top: 4),
-                                          child: Icon(Icons.circle, size: 7, color: Color(0xFFD97B29)),
+                                        Container(
+                                          width: 22, height: 22,
+                                          margin: const EdgeInsets.only(top: 1),
+                                          decoration: const BoxDecoration(color: Color(0xFFD97B29), shape: BoxShape.circle),
+                                          alignment: Alignment.center,
+                                          child: Text('${e.key + 1}',
+                                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
-                                          child: Text(p.replaceFirst(RegExp(r'^⭐?\s*(முக்கியமாக படிக்க:)?\s*'), ''),
+                                          child: Text(e.value,
                                               style: const TextStyle(fontSize: 14.5, height: 1.5, color: Color(0xFF14213D))),
                                         ),
                                       ],
