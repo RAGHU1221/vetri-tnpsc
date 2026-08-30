@@ -61,15 +61,42 @@ class LessonDetailScreen extends StatefulWidget {
 
 class _LessonDetailScreenState extends State<LessonDetailScreen> {
   Future<LessonDetail>? _future;
+  int? _loadedFor;
 
   @override
   void initState() {
     super.initState();
-    _future = LessonService.detail(widget.lessonId);
+    _loadFor(widget.lessonId);
+  }
+
+  @override
+  void didUpdateWidget(covariant LessonDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Defensive fix for a real bug: navigating from one lesson to another
+    // could leave the OLD lesson's data on screen if Flutter ever reuses
+    // this State object across the navigation (widget.lessonId changes but
+    // initState() only runs once, so the old _future never got replaced).
+    // This catches that regardless of *why* the State got reused — the
+    // widget-level key added in router.dart should already prevent reuse,
+    // but this makes the screen self-correcting even if that ever fails.
+    if (oldWidget.lessonId != widget.lessonId) {
+      _loadFor(widget.lessonId);
+    }
+  }
+
+  void _loadFor(int lessonId) {
+    _loadedFor = lessonId;
+    _future = LessonService.detail(lessonId);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Belt-and-braces: if somehow build() runs with a _future that was
+    // loaded for a different lesson than what's currently requested,
+    // kick off a fresh fetch immediately rather than render stale data.
+    if (_loadedFor != widget.lessonId) {
+      _loadFor(widget.lessonId);
+    }
     final ta = context.watch<AppProvider>().isTamil;
     return Scaffold(
       backgroundColor: const Color(0xFFFBF7EE),
