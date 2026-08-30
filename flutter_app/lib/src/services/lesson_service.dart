@@ -1,5 +1,26 @@
 import 'api_service.dart';
 
+/// PHP/PDO (with the default "emulated prepares" mode) sometimes returns
+/// numeric DB columns as JSON strings instead of JSON numbers, depending on
+/// whether that specific endpoint explicitly cast them. Parsing with a
+/// plain `j['id']` assignment to an `int` field crashes the whole request
+/// the moment that happens (exactly what broke "open Lesson 2" — the
+/// server-side fix is in LessonController::detail(), but parsing
+/// defensively here means a similar oversight elsewhere never takes the
+/// whole screen down again).
+int _toInt(dynamic v, [int fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString()) ?? fallback;
+}
+
+double _toDouble(dynamic v, [double fallback = 0]) {
+  if (v == null) return fallback;
+  if (v is num) return v.toDouble();
+  return double.tryParse(v.toString()) ?? fallback;
+}
+
 class LessonSummary {
   final int id, lessonNo, passPercent;
   final String unit, lessonTitleTa;
@@ -7,14 +28,14 @@ class LessonSummary {
   final double? score;
 
   LessonSummary.fromJson(Map<String, dynamic> j)
-      : id = j['id'],
-        lessonNo = j['lesson_no'],
+      : id = _toInt(j['id']),
+        lessonNo = _toInt(j['lesson_no']),
         unit = j['unit'] ?? '',
         lessonTitleTa = j['lesson_title_ta'] ?? '',
-        passPercent = j['pass_percent'] ?? 70,
+        passPercent = _toInt(j['pass_percent'], 70),
         locked = j['locked'] ?? false,
         passed = j['passed'] ?? false,
-        score = (j['score'] as num?)?.toDouble();
+        score = j['score'] == null ? null : _toDouble(j['score']);
 }
 
 class LessonTestQuestion {
@@ -23,8 +44,8 @@ class LessonTestQuestion {
   final String? explanationTa;
 
   LessonTestQuestion.fromJson(Map<String, dynamic> j)
-      : id = j['id'],
-        questionNo = j['question_no'],
+      : id = _toInt(j['id']),
+        questionNo = _toInt(j['question_no']),
         questionTa = j['question_ta'] ?? '',
         optionA = j['option_a'] ?? '',
         optionB = j['option_b'] ?? '',
@@ -50,9 +71,9 @@ class LessonDetail {
   final List<LessonTestQuestion> tests;
 
   LessonDetail.fromJson(Map<String, dynamic> j)
-      : id = j['id'],
-        lessonNo = j['lesson_no'],
-        passPercent = j['pass_percent'] ?? 70,
+      : id = _toInt(j['id']),
+        lessonNo = _toInt(j['lesson_no']),
+        passPercent = _toInt(j['pass_percent'], 70),
         unit = j['unit'] ?? '',
         lessonTitleTa = j['lesson_title_ta'] ?? '',
         explanationTa = j['explanation_ta'],
@@ -77,11 +98,11 @@ class LessonTestResult {
   final bool passed;
 
   LessonTestResult.fromJson(Map<String, dynamic> j)
-      : correct = j['correct'],
-        total = j['total'],
-        passPercent = j['pass_percent'],
-        scorePercent = (j['score_percent'] as num).toDouble(),
-        passed = j['passed'];
+      : correct = _toInt(j['correct']),
+        total = _toInt(j['total']),
+        passPercent = _toInt(j['pass_percent']),
+        scorePercent = _toDouble(j['score_percent']),
+        passed = j['passed'] == true || j['passed'] == 1 || j['passed'] == '1';
 }
 
 class LessonService {
