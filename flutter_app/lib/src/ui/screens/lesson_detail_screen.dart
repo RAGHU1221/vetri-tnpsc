@@ -4,6 +4,24 @@ import 'package:provider/provider.dart';
 import '../../providers/app_provider.dart';
 import '../../services/lesson_service.dart';
 
+/// The source workbook bakes a couple of administrative/scope notes into
+/// many lessons' explanation text (sourcing disclaimers, class-range scope
+/// notes) — useful for whoever prepared the material, not for a student
+/// reading the lesson. Stripped here at display time only; the stored
+/// explanation_ta itself is left untouched (requirement: don't modify
+/// source content — this only affects what's rendered on screen).
+String _cleanExplanation(String raw) {
+  final paragraphs = raw.split(RegExp(r'\n\s*\n'));
+  final kept = paragraphs.where((p) {
+    final t = p.trim();
+    if (t.isEmpty) return false;
+    if (t.startsWith('குறிப்பு:')) return false; // sourcing/attribution disclaimer
+    if (t.startsWith('இந்தப் பகுதியில்') || t.startsWith('இந்த பகுதியில்')) return false; // class-range scope note
+    return true;
+  });
+  return kept.join('\n\n').trim();
+}
+
 class LessonDetailScreen extends StatefulWidget {
   final int lessonId;
   const LessonDetailScreen({super.key, required this.lessonId});
@@ -86,7 +104,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                         icon: Icons.menu_book_rounded,
                         color: const Color(0xFF3E6FB0),
                         title: ta ? 'விளக்கம்' : 'Explanation',
-                        child: Text(l.explanationTa!,
+                        child: Text(_cleanExplanation(l.explanationTa!),
                             style: const TextStyle(fontSize: 15.5, height: 1.65, color: Color(0xFF14213D))),
                       ),
                     if (l.importantPointsList.isNotEmpty)
