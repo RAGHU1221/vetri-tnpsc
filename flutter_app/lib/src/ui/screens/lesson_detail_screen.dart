@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:dio/dio.dart';
 import '../../providers/app_provider.dart';
 import '../../services/lesson_service.dart';
 
@@ -104,6 +105,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         future: _future,
         builder: (context, snap) {
           if (snap.hasError) {
+            final err = snap.error;
+            final isLocked = err is DioException && err.response?.statusCode == 403;
             return SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -112,8 +115,23 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                   children: [
                     IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
                     const SizedBox(height: 20),
-                    Text(ta ? '🔒 இந்த பாடம் இன்னும் திறக்கவில்லை' : '🔒 This lesson is still locked',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    if (isLocked)
+                      Text(ta ? '🔒 இந்த பாடம் இன்னும் திறக்கவில்லை' : '🔒 This lesson is still locked',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))
+                    else ...[
+                      Text(ta ? '⚠️ பாடத்தை load செய்ய முடியவில்லை' : '⚠️ Could not load this lesson',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                      const SizedBox(height: 8),
+                      // Shown so a real bug (not an actual lock) is visible
+                      // and reportable, instead of being hidden behind a
+                      // generic "locked" message.
+                      Text('$err', style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600)),
+                      const SizedBox(height: 16),
+                      OutlinedButton(
+                        onPressed: () => setState(() => _loadFor(widget.lessonId)),
+                        child: Text(ta ? 'மீண்டும் முயற்சிக்க' : 'Retry'),
+                      ),
+                    ],
                   ],
                 ),
               ),
