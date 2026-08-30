@@ -64,7 +64,16 @@ final router = GoRouter(
     GoRoute(path: '/lessons', builder: (c, s) => const LessonListScreen()),
     GoRoute(
       path: '/lessons/:id',
-      builder: (c, s) => LessonDetailScreen(lessonId: int.parse(s.pathParameters['id']!)),
+      builder: (c, s) {
+        final id = int.parse(s.pathParameters['id']!);
+        // key: without this, Flutter can reuse the SAME State object when
+        // navigating from one lesson to another (both are the same widget
+        // type at the same tree position) — its initState() (which kicks
+        // off the fetch) never re-runs, so the OLD lesson's data stays on
+        // screen even though the id in the URL changed. The key forces a
+        // brand-new widget/State per lesson id.
+        return LessonDetailScreen(key: ValueKey('lesson-$id'), lessonId: id);
+      },
     ),
     GoRoute(
       path: '/lessons/:id/test',
