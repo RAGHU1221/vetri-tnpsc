@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_provider.dart';
 import '../../services/lesson_service.dart';
+import 'lesson_detail_screen.dart';
 
 class LessonListScreen extends StatefulWidget {
   const LessonListScreen({super.key});
@@ -115,7 +116,20 @@ class _LessonListScreenState extends State<LessonListScreen> {
                     onTap: l.locked
                         ? () => _showLockedMessage(context, ta)
                         : () async {
-                            await context.push('/lessons/${l.id}');
+                            // Navigator.push + MaterialPageRoute (not
+                            // GoRouter's context.push) is deliberate here:
+                            // it guarantees a brand-new widget/route/State
+                            // every single call, no matter what internal
+                            // page-caching GoRouter does for path-based
+                            // navigation — this is what actually fixes the
+                            // "tapping Lesson 2 shows Lesson 1" bug, since
+                            // every earlier fix (ValueKey, didUpdateWidget)
+                            // still went through GoRouter's own routing.
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => LessonDetailScreen(lessonId: l.id),
+                              ),
+                            );
                             if (mounted) _refresh();
                           },
                   ),
