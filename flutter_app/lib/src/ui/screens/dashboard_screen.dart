@@ -5,7 +5,6 @@ import '../../providers/app_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/stats_service.dart';
 import '../../services/job_notification_service.dart';
-import '../../services/question_service.dart';
 import '../widgets/vetri_buttons.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -17,7 +16,6 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int? _streak;
   int _openNotifCount = 0;
-  bool _syncing = false;
 
   @override
   void initState() {
@@ -30,51 +28,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  /// Force-fetches the latest questions from the live server (bypassing
-  /// whatever was cached in memory) and reports the real outcome — how
-  /// many questions actually loaded, or the exact error if it fell back
-  /// to offline data — right here on the dashboard. No need to hunt for
-  /// a refresh icon on another screen to find out whether a sync worked.
-  Future<void> _sync() async {
-    if (_syncing) return;
-    setState(() => _syncing = true);
-    final ta = context.read<AppProvider>().isTamil;
-    try {
-      final questions = await QuestionService.refresh();
-      if (!mounted) return;
-      if (QuestionService.usedSeedFallback) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          duration: const Duration(seconds: 8),
-          backgroundColor: const Color(0xFFB33A2B),
-          content: Text(ta
-              ? 'Sync தோல்வி — server-ஐ அடைய முடியல, பழைய offline data (${questions.length}) காட்டுது.\n${QuestionService.lastError ?? ''}'
-              : 'Sync failed — could not reach the server, showing old offline data (${questions.length}).\n${QuestionService.lastError ?? ''}'),
-        ));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          duration: const Duration(seconds: 4),
-          backgroundColor: const Color(0xFF2E7D4F),
-          content: Text(ta
-              ? 'Sync ஆச்சு — ${questions.length} கேள்விகள் load ஆச்சு ✓'
-              : 'Synced — ${questions.length} questions loaded ✓'),
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _syncing = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final ta = app.isTamil;
-    const guideKeyMap = {'G4': 'tnpsc_g4', 'G2A': 'tnpsc_g2a', 'NMMS': 'nmms', 'G1': 'tnpsc_g1'};
-    final syllabusRoute = '/guide/${guideKeyMap[app.examGroup] ?? 'tnpsc_g4'}';
     final tiles = [
-      (Icons.menu_book_rounded, ta ? 'பாடத்திட்டம்' : 'Syllabus', syllabusRoute,
+      (Icons.menu_book_rounded, ta ? 'பாடத்திட்டம்' : 'Syllabus', '/syllabus',
           const [Color(0xFF3E6FB0), Color(0xFF2A4F82)]),
-      (Icons.auto_stories_rounded, ta ? 'பாடங்கள்' : 'Lessons', '/lessons',
-          const [Color(0xFF8E24AA), Color(0xFF5E1786)]),
       (Icons.quiz_rounded, ta ? 'கேள்வி வங்கி' : 'Question Bank', '/syllabus',
           const [Color(0xFFC9971C), Color(0xFFA87A12)]),
       (Icons.timer_rounded, ta ? 'மாதிரி தேர்வு' : 'Mock Test', '/test-setup',
@@ -89,6 +49,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const [Color(0xFF1B8A96), Color(0xFF13636C)]),
       (Icons.notifications_active_rounded, ta ? 'அறிவிப்புகள்' : 'Notifications', '/notifications',
           const [Color(0xFFD97B29), Color(0xFFA85E1D)]),
+      (Icons.sticky_note_2_rounded, ta ? 'விரைவு குறிப்புகள்' : 'Quick Notes', '/notes',
+          const [Color(0xFF9A3B8F), Color(0xFF6E2A67)]),
     ];
     return Scaffold(
       backgroundColor: const Color(0xFFFBF7EE),
@@ -108,27 +70,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
         ]),
         actions: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              VetriIconButton(
-                icon: Icons.sync_rounded,
-                bg: const Color(0xFF1B8A96),
-                size: 40,
-                onTap: _syncing ? () {} : _sync,
-              ),
-              if (_syncing)
-                const Positioned.fill(
-                  child: Center(
-                    child: SizedBox(
-                      width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 10),
           Stack(
             clipBehavior: Clip.none,
             children: [
