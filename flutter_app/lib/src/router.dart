@@ -33,9 +33,11 @@ final router = GoRouter(
     GoRoute(path: '/signup', builder: (c, s) => const SignupScreen()),
     GoRoute(path: '/dashboard', builder: (c, s) => const DashboardScreen()),
     GoRoute(path: '/syllabus', builder: (c, s) => const SyllabusScreen()),
+    GoRoute(path: '/question-bank', builder: (c, s) => const SyllabusScreen(bank: true)),
     GoRoute(
       path: '/questions/:subject',
-      builder: (c, s) => QuestionListScreen(subject: s.pathParameters['subject']!),
+      builder: (c, s) => QuestionListScreen(
+          subject: s.pathParameters['subject']!, unit: s.uri.queryParameters['unit']),
     ),
     GoRoute(path: '/test-setup', builder: (c, s) => const TestSetupScreen()),
     GoRoute(path: '/current-affairs', builder: (c, s) => const CAScreen()),
