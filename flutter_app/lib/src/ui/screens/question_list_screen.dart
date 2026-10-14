@@ -8,7 +8,8 @@ import 'syllabus_screen.dart';
 
 class QuestionListScreen extends StatefulWidget {
   final String subject;
-  const QuestionListScreen({super.key, required this.subject});
+  final String? unit; // preselected unit (from the Syllabus tree)
+  const QuestionListScreen({super.key, required this.subject, this.unit});
   @override
   State<QuestionListScreen> createState() => _QuestionListScreenState();
 }
@@ -17,6 +18,7 @@ class _QuestionListScreenState extends State<QuestionListScreen> {
   Future<List<Question>>? _future;
   String? _group;
   String? _unit;          // null = all units
+  bool _init = false;
   bool _importantOnly = false;
 
   Future<void> _reload() async {
@@ -31,7 +33,7 @@ class _QuestionListScreenState extends State<QuestionListScreen> {
     final ta = app.isTamil;
     if (_future == null || _group != app.examGroup) {
       _group = app.examGroup;
-      _unit = null;
+      if (!_init) { _unit = (widget.unit == null || widget.unit!.isEmpty) ? null : widget.unit; _init = true; } else { _unit = null; }
       _future = QuestionService.forSubject(widget.subject, groupExam: _group);
     }
     final n = SyllabusScreen.names[widget.subject.trim().toLowerCase()];

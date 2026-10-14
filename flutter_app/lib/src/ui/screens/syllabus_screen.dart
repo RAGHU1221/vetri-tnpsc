@@ -5,7 +5,9 @@ import '../../providers/app_provider.dart';
 import '../../services/question_service.dart';
 
 class SyllabusScreen extends StatefulWidget {
-  const SyllabusScreen({super.key});
+  /// bank=false -> Syllabus (subject > unit tree); bank=true -> Question Bank (subject cards)
+  final bool bank;
+  const SyllabusScreen({super.key, this.bank = false});
 
   static const names = {
     'tamil': ('பொதுத் தமிழ்', 'General Tamil'),
@@ -54,6 +56,55 @@ class _SyllabusScreenState extends State<SyllabusScreen> {
     setState(() => _future = QuestionService.bySubject(groupExam: _group));
   }
 
+  Widget _syllabusTile(BuildContext context, String subject, List<Question> qs, bool ta) {
+    final n = SyllabusScreen.names[subject];
+    final name = n == null ? subject : (ta ? n.$1 : n.$2);
+    final units = <String, int>{};
+    for (final q in qs) {
+      final u = q.unit.trim().isEmpty ? (ta ? 'பொது' : 'General') : q.unit.trim();
+      units[u] = (units[u] ?? 0) + 1;
+    }
+    final names = units.keys.toList()..sort();
+    final colors = _colors[subject] ?? const [Color(0xFF2E7D4F), Color(0xFF1F5C38)];
+    String enc(String u) => Uri.encodeComponent(u);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 9, offset: const Offset(0, 3))],
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 4),
+          leading: Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+            ),
+            child: Icon(_icons[subject] ?? Icons.folder_open, color: Colors.white, size: 22),
+          ),
+          title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+          subtitle: Text(ta ? '${names.length} பிரிவுகள் · ${qs.length} கேள்விகள்' : '${names.length} units · ${qs.length} questions',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5)),
+          children: [
+            for (final u in names)
+              ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.only(left: 30, right: 16),
+                leading: const Icon(Icons.bookmark_outline_rounded, size: 18),
+                title: Text(u, style: const TextStyle(fontSize: 14)),
+                trailing: Text('${units[u]}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                onTap: () => context.push('/questions/$subject?unit=${enc(u == 'பொது' || u == 'General' ? '' : u)}'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
@@ -66,8 +117,8 @@ class _SyllabusScreenState extends State<SyllabusScreen> {
       backgroundColor: const Color(0xFFFBF7EE),
       appBar: AppBar(
           title: Text(ta
-              ? 'பாடத்திட்டம் · ${app.examGroupLabelTa}'
-              : 'Syllabus · ${app.examGroupLabelEn}'),
+              ? '${widget.bank ? 'கேள்வி வங்கி' : 'பாடத்திட்டம்'} · ${app.examGroupLabelTa}'
+              : '${widget.bank ? 'Question Bank' : 'Syllabus'} · ${app.examGroupLabelEn}'),
           elevation: 0,
           actions: [
             IconButton(
@@ -103,7 +154,7 @@ class _SyllabusScreenState extends State<SyllabusScreen> {
             padding: const EdgeInsets.all(14),
             children: [
               for (final entry in keys.map((k) => MapEntry(k, subjects[k]!)))
-                Container(
+                if (!widget.bank) _syllabusTile(context, entry.key, entry.value, ta) else Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
                     color: Colors.white,

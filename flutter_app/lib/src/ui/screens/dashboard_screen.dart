@@ -37,7 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final tiles = [
       (Icons.menu_book_rounded, ta ? 'பாடத்திட்டம்' : 'Syllabus', '/syllabus',
           const [Color(0xFF3E6FB0), Color(0xFF2A4F82)]),
-      (Icons.quiz_rounded, ta ? 'கேள்வி வங்கி' : 'Question Bank', '/syllabus',
+      (Icons.quiz_rounded, ta ? 'கேள்வி வங்கி' : 'Question Bank', '/question-bank',
           const [Color(0xFFC9971C), Color(0xFFA87A12)]),
       (Icons.timer_rounded, ta ? 'மாதிரி தேர்வு' : 'Mock Test', '/test-setup',
           const [Color(0xFFB33A2B), Color(0xFF8C2A1F)]),
