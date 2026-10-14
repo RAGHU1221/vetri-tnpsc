@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show rootBundle;
 import 'api_service.dart';
 
@@ -22,7 +21,7 @@ class Question {
   Question.fromJson(Map<String, dynamic> j)
       : id = j['id'],
         groupExam = j['group_exam'] ?? 'G4',
-        subject = _normalizeSubject(j['subject']),
+        subject = j['subject'],
         unit = j['unit'] ?? '',
         questionTa = j['question_ta'],
         questionEn = j['question_en'] ?? '',
@@ -51,26 +50,14 @@ class Question {
         yearsAsked = List<String>.from(j['years_asked'] ?? []),
         repeatCount = j['repeat_count'] ?? (j['years_asked']?.length ?? 0);
 
-  /// DB-la subject column-ku Tamil-script vs English-spelling variants
-  /// (e.g. "தமிழ்" vs "tamil") separate values-a store aagi, app-la
-  /// rendum vera vera map keys-a split aagi silent-a hide aaguthu.
-  /// Idha thavirkka, load pannumbodhே canonical (English) spelling-ku
-  /// normalize pannurom — DB-la future-la இதே மாதிரி typo/variant
-  /// vandhalum UI break aagaadhu.
-  static String _normalizeSubject(String raw) {
-    const map = {
-      'தமிழ்': 'tamil',
-      // Future-la இதே மாதிரி Tamil-script duplicate subject values
-      // kandupidichaal, இங்க add pannunga:
-      // 'பொருளாதாரம்': 'economy',
-      // 'வரலாறு': 'history',
-      // 'புவியியல்': 'geography',
-      // 'அறிவியல்': 'science',
-      // 'அரசியல்': 'polity',
-      // 'நடப்பு நிகழ்வுகள்': 'current_affairs',
-      // 'திறன்': 'aptitude',
-    };
-    return map[raw] ?? raw;
+  /// Options in the UI language; falls back to Tamil PER OPTION when the English
+  /// text is missing/blank (imports often have empty option_*_en columns).
+  List<String> optionsFor(bool ta) {
+    if (ta) return optionsTa;
+    return [
+      for (int i = 0; i < optionsTa.length; i++)
+        (i < optionsEn.length && optionsEn[i].trim().isNotEmpty) ? optionsEn[i] : optionsTa[i]
+    ];
   }
 
   /// 🔥 3+, ⭐ 2, none otherwise
@@ -81,110 +68,73 @@ class Question {
 class QuestionService {
   static List<Question>? _cache;
 
-  /// The real exception from the last failed live fetch, if the app had to
-  /// fall back to the bundled seed asset. Null when the last load came
-  /// from the live server successfully. Screens can show this on-screen
-  /// (SnackBar/banner) so the actual cause is visible on the phone itself,
-  /// without needing adb logcat / a computer.
-  static String? lastError;
-
-  /// True if the questions currently in memory came from the bundled
-  /// offline seed file rather than the live server (i.e. the counts you
-  /// see may be outdated / missing recent admin imports).
-  static bool usedSeedFallback = false;
-
-  /// Admin panel-la import pannadhum, already-running app-oda cache-a
-  /// force clear panna. Aprom loadSeed()/bySubject() next call automatic-a
-  /// server-kitta fresh data eduthukum.
+  /// Drop the in-memory cache so the next call re-fetches from the server
+  /// (used by the reload button / pull-to-refresh after admin imports).
   static void clearCache() => _cache = null;
 
-  /// Cache clear panni udane server-la irundhu fresh-a reload pannum.
-  static Future<List<Question>> refresh() {
+  static Future<List<Question>> refresh() async {
     clearCache();
     return loadSeed();
   }
 
-  /// Server-first (latest + admin-imported); seed JSON fallback offline
-  static Future<List<Question>> loadSeed() async {
-    if (_cache != null) return _cache!;
-    try {
-      // Loop through pages of 500 (server's max per-request cap) until every
-      // question is fetched — works correctly no matter how many questions
-      // exist in the DB now or after future imports (871, 2000, etc.).
-      final all = <Question>[];
-      const pageSize = 500;
-      int offset = 0;
-      var skipped = 0;
-      while (true) {
-        final res = await ApiService.instance.dio.get('/api/questions',
-            queryParameters: {'limit': pageSize, 'offset': offset});
-        final rawPage = res.data['questions'] as List;
-        // Parse each row individually — a single malformed/unexpected row
-        // (missing field, new admin-import edge case, etc.) used to throw
-        // inside .map() and abort the ENTIRE fetch, silently falling back
-        // to the old bundled seed JSON for ALL groups/subjects. Now we
-        // skip just that one row and keep the rest of the (correct) live
-        // data, and log exactly which question id + error caused it so
-        // it can be fixed at the source (import script / DB row).
-        for (final j in rawPage) {
-          try {
-            all.add(Question.fromJson(j as Map<String, dynamic>));
-          } catch (e) {
-            skipped++;
-            debugPrint(
-                'QuestionService: skipped malformed question id=${j is Map ? j['id'] : '?'} — $e');
-          }
-        }
-        if (rawPage.length < pageSize) break; // last page reached
-        offset += pageSize;
-      }
-      if (skipped > 0) {
-        debugPrint('QuestionService: loaded ${all.length} questions, skipped $skipped malformed rows (see logs above for ids)');
-      }
-      if (all.isNotEmpty) {
-        lastError = null;
-        usedSeedFallback = false;
-        return _cache = all;
-      }
-    } catch (e, st) {
-      // Network/API-level failure (server down, timeout, auth, etc.) —
-      // fall back to bundled seed asset. Stored in lastError so a screen
-      // can show it on-screen (no adb/computer needed to see why).
-      lastError = e.toString();
-      debugPrint('QuestionService: live fetch failed, falling back to bundled seed — $e');
-      debugPrint('$st');
-    }
-    usedSeedFallback = true;
-    try {
-      final raw = await rootBundle.loadString('assets/data/questions_seed.json');
-      final data = jsonDecode(raw) as Map<String, dynamic>;
-      final seedList = data['questions'] as List;
-      final seedQuestions = <Question>[];
-      for (final q in seedList) {
-        try {
-          seedQuestions.add(Question.fromJson(q as Map<String, dynamic>));
-        } catch (e) {
-          debugPrint('QuestionService: skipped malformed seed question — $e');
-        }
-      }
-      _cache = seedQuestions;
-      return _cache!;
-    } catch (e) {
-      // Bundled seed missing/unreadable and API unreachable — return empty
-      // rather than crash; screens should handle an empty question list.
-      lastError = e.toString();
-      debugPrint('QuestionService: bundled seed also failed to load — $e');
-      return _cache = [];
-    }
+  /// Server-first (latest + admin-imported); seed JSON fallback offline.
+  /// Loops through pages (backend caps each page at 500). If a later page fails,
+  /// whatever was already fetched is kept instead of being thrown away.
+  static Future<List<Question>>? _loading;
+
+  /// Safe to call from many screens at once: only ONE network load runs.
+  static Future<List<Question>> loadSeed() {
+    if (_cache != null) return Future.value(_cache!);
+    return _loading ??= _load().whenComplete(() => _loading = null);
   }
 
+  static Future<List<Question>> _fetchPage(int offset, int size) async {
+    final res = await ApiService.instance.dio.get('/api/questions',
+        queryParameters: {'limit': size, 'offset': offset});
+    return (res.data['questions'] as List).map((j) => Question.fromJson(j)).toList();
+  }
+
+  static Future<List<Question>> _load() async {
+    final List<Question> all = [];
+    try {
+      const size = 500, wave = 3; // 3 pages in parallel per wave
+      int offset = 0;
+      bool done = false;
+      while (!done) {
+        final pages = await Future.wait([
+          for (int i = 0; i < wave; i++) _fetchPage(offset + i * size, size),
+        ]);
+        for (final p in pages) {
+          all.addAll(p);
+          if (p.length < size) done = true;
+        }
+        offset += wave * size;
+      }
+    } catch (_) {
+      // offline / partial failure - keep whatever arrived
+    }
+    if (all.isNotEmpty) return _cache = all;
+    final raw = await rootBundle.loadString('assets/data/questions_seed.json');
+    final data = jsonDecode(raw) as Map<String, dynamic>;
+    return _cache = (data['questions'] as List).map((q) => Question.fromJson(q)).toList();
+  }
+
+  static String _key(String s) => s.trim().toLowerCase();
+
+  /// subject -> questions for one exam group (subject keys normalised)
   static Future<Map<String, List<Question>>> bySubject({String? groupExam}) async {
     final all = await loadSeed();
     final filtered = groupExam == null ? all : all.where((q) => q.groupExam == groupExam).toList();
     final map = <String, List<Question>>{};
     for (final q in filtered) {
-      map.putIfAbsent(q.subject, () => []).add(q);
+      map.putIfAbsent(_key(q.subject), () => []).add(q);
     }
     return map;
+  }
+
+  /// Questions of ONE subject inside one exam group (used by the question list)
+  static Future<List<Question>> forSubject(String subject, {String? groupExam}) async {
+    final m = await bySubject(groupExam: groupExam);
+    return List<Question>.from(m[_key(subject)] ?? const []);
   }
 }
