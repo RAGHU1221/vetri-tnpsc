@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/question_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_provider.dart';
@@ -20,6 +21,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    QuestionService.loadSeed(); // warm the cache so tests/syllabus open instantly
     StatsService.streakPing().then((d) {
       if (mounted && d != null) setState(() => _streak = d['current_streak']);
     });

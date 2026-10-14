@@ -68,7 +68,7 @@ class _TestScreenState extends State<TestScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final q = _questions![_current];
-    final options = ta || q.optionsEn.isEmpty ? q.optionsTa : q.optionsEn;
+    final options = q.optionsFor(ta);
     final lowTime = _remaining.inMinutes < 2;
     return PopScope(
       canPop: false,

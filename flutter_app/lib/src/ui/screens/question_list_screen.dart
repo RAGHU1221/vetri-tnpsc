@@ -4,68 +4,121 @@ import '../../providers/app_provider.dart';
 import '../../services/question_service.dart';
 import '../widgets/vetri_buttons.dart';
 import '../widgets/question_body.dart';
+import 'syllabus_screen.dart';
 
 class QuestionListScreen extends StatefulWidget {
   final String subject;
   const QuestionListScreen({super.key, required this.subject});
-
   @override
   State<QuestionListScreen> createState() => _QuestionListScreenState();
 }
 
 class _QuestionListScreenState extends State<QuestionListScreen> {
-  Future<Map<String, List<Question>>>? _future;
+  Future<List<Question>>? _future;
+  String? _group;
+  String? _unit;          // null = all units
+  bool _importantOnly = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _future = QuestionService.bySubject(
-        groupExam: context.read<AppProvider>().examGroup);
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _future = QuestionService.refresh().then(
-          (_) => QuestionService.bySubject(groupExam: context.read<AppProvider>().examGroup));
-    });
-    await _future;
+  Future<void> _reload() async {
+    await QuestionService.refresh();
+    if (!mounted) return;
+    setState(() => _future = QuestionService.forSubject(widget.subject, groupExam: _group));
   }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final ta = app.isTamil;
+    if (_future == null || _group != app.examGroup) {
+      _group = app.examGroup;
+      _unit = null;
+      _future = QuestionService.forSubject(widget.subject, groupExam: _group);
+    }
+    final n = SyllabusScreen.names[widget.subject.trim().toLowerCase()];
+    final title = n == null ? (ta ? 'கேள்விகள்' : 'Questions') : (ta ? n.$1 : n.$2);
     return Scaffold(
       backgroundColor: const Color(0xFFFBF7EE),
       appBar: AppBar(
-        title: Text(ta ? 'கேள்விகள்' : 'Questions'),
+        title: Text(title),
         elevation: 0,
         actions: [
           IconButton(
+            tooltip: ta ? 'முக்கியமானவை மட்டும்' : 'Important only',
+            icon: Icon(_importantOnly ? Icons.star_rounded : Icons.star_border_rounded),
+            onPressed: () => setState(() => _importantOnly = !_importantOnly),
+          ),
+          IconButton(
+            tooltip: ta ? 'புதுப்பி' : 'Reload',
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: ta ? 'புதுப்பிக்க' : 'Refresh',
-            onPressed: _refresh,
+            onPressed: _reload,
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: FutureBuilder(
-          future: _future,
-          builder: (context, snap) {
-            if (!snap.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final questions = snap.data![widget.subject] ?? [];
-            questions.sort((a, b) => b.repeatCount.compareTo(a.repeatCount));
-            return ListView.builder(
-              padding: const EdgeInsets.all(14),
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: questions.length,
-              itemBuilder: (context, i) => _QuestionCard(q: questions[i], ta: ta, index: i + 1),
-            );
-          },
-        ),
+      body: FutureBuilder<List<Question>>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final all = snap.data ?? [];
+          final units = <String>{
+            for (final q in all) if (q.unit.trim().isNotEmpty) q.unit.trim()
+          }.toList()..sort();
+          var questions = all.where((q) =>
+              (_unit == null || q.unit.trim() == _unit) &&
+              (!_importantOnly || q.repeatCount >= 2)).toList()
+            ..sort((a, b) => b.repeatCount.compareTo(a.repeatCount));
+          return Column(
+            children: [
+              if (units.length > 1)
+                SizedBox(
+                  height: 48,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(ta ? 'அனைத்தும் (${all.length})' : 'All (${all.length})'),
+                          selected: _unit == null,
+                          onSelected: (_) => setState(() => _unit = null),
+                        ),
+                      ),
+                      for (final u in units)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text('$u (${all.where((q) => q.unit.trim() == u).length})'),
+                            selected: _unit == u,
+                            onSelected: (_) => setState(() => _unit = u),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _reload,
+                  child: questions.isEmpty
+                      ? ListView(children: [
+                          const SizedBox(height: 120),
+                          Center(child: Text(ta ? 'கேள்விகள் இல்லை' : 'No questions found')),
+                        ])
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(14),
+                          itemCount: questions.length,
+                          // key by id so option selection state never jumps between cards
+                          itemBuilder: (context, i) => _QuestionCard(
+                              key: ValueKey(questions[i].id),
+                              q: questions[i], ta: ta, index: i + 1),
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -75,7 +128,7 @@ class _QuestionCard extends StatefulWidget {
   final Question q;
   final bool ta;
   final int index;
-  const _QuestionCard({required this.q, required this.ta, required this.index});
+  const _QuestionCard({super.key, required this.q, required this.ta, required this.index});
 
   @override
   State<_QuestionCard> createState() => _QuestionCardState();
@@ -88,7 +141,7 @@ class _QuestionCardState extends State<_QuestionCard> {
   Widget build(BuildContext context) {
     final q = widget.q;
     final ta = widget.ta;
-    final options = ta || q.optionsEn.isEmpty ? q.optionsTa : q.optionsEn;
+    final options = q.optionsFor(ta);
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(

@@ -128,7 +128,7 @@ class TestResultScreen extends StatelessWidget {
     final q = questions[i];
     final ans = answers[i];
     final isCorrect = ans == q.correct;
-    final options = ta || q.optionsEn.isEmpty ? q.optionsTa : q.optionsEn;
+    final options = q.optionsFor(ta);
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ExpansionTile(

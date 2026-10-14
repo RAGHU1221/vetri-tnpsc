@@ -17,6 +17,11 @@ class SyllabusScreen extends StatefulWidget {
     'current_affairs': ('நடப்பு நிகழ்வுகள்', 'Current Affairs'),
     'aptitude': ('திறனறிவு', 'Aptitude'),
   };
+  @override
+  State<SyllabusScreen> createState() => _SyllabusScreenState();
+}
+
+class _SyllabusScreenState extends State<SyllabusScreen> {
 
   static const _icons = {
     'tamil': Icons.translate_rounded,
@@ -40,55 +45,22 @@ class SyllabusScreen extends StatefulWidget {
     'aptitude': [Color(0xFF14213D), Color(0xFF0D1830)],
   };
 
-  @override
-  State<SyllabusScreen> createState() => _SyllabusScreenState();
-}
-
-class _SyllabusScreenState extends State<SyllabusScreen> {
   Future<Map<String, List<Question>>>? _future;
+  String? _group;
 
-  @override
-  void initState() {
-    super.initState();
-    _future = QuestionService.bySubject(
-        groupExam: context.read<AppProvider>().examGroup);
-    // Erst frame render aana udane, live data illama seed fallback-a
-    // irundhaa (app open panna udanae), andha real reason-a screen-la
-    // காட்டு — adb/computer illama exact bug-a phone-lame பாக்கலாம்.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showFallbackWarningIfAny());
-  }
-
-  Future<void> _refresh() async {
-    setState(() {
-      _future = QuestionService.refresh().then(
-          (_) => QuestionService.bySubject(groupExam: context.read<AppProvider>().examGroup));
-    });
-    await _future;
-    _showFallbackWarningIfAny();
-  }
-
-  void _showFallbackWarningIfAny() {
+  Future<void> _reload() async {
+    await QuestionService.refresh();
     if (!mounted) return;
-    if (QuestionService.usedSeedFallback) {
-      final ta = context.read<AppProvider>().isTamil;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          duration: const Duration(seconds: 10),
-          backgroundColor: const Color(0xFFB33A2B),
-          content: Text(
-            ta
-                ? 'Live data கிடைக்கல — பழைய offline data காட்டுது.\n${QuestionService.lastError ?? ''}'
-                : 'Could not reach live server — showing old offline data.\n${QuestionService.lastError ?? ''}',
-            style: const TextStyle(fontSize: 12.5),
-          ),
-        ),
-      );
-    }
+    setState(() => _future = QuestionService.bySubject(groupExam: _group));
   }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    if (_future == null || _group != app.examGroup) {
+      _group = app.examGroup;
+      _future = QuestionService.bySubject(groupExam: _group);
+    }
     final ta = app.isTamil;
     return Scaffold(
       backgroundColor: const Color(0xFFFBF7EE),
@@ -99,25 +71,38 @@ class _SyllabusScreenState extends State<SyllabusScreen> {
           elevation: 0,
           actions: [
             IconButton(
+              tooltip: ta ? 'புதுப்பி' : 'Reload',
               icon: const Icon(Icons.refresh_rounded),
-              tooltip: ta ? 'புதுப்பிக்க' : 'Refresh',
-              onPressed: _refresh,
+              onPressed: _reload,
             ),
           ]),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: FutureBuilder(
+      body: FutureBuilder<Map<String, List<Question>>>(
         future: _future,
         builder: (context, snap) {
-          if (!snap.hasData) {
+          if (snap.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
-          final subjects = snap.data!;
-          return ListView(
-            padding: const EdgeInsets.all(14),
+          final subjects = snap.data ?? {};
+          if (subjects.isEmpty) {
+            return Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(ta ? 'கேள்விகள் இல்லை' : 'No questions yet'),
+                TextButton(onPressed: _reload, child: Text(ta ? 'மீண்டும் முயற்சி' : 'Retry')),
+              ]),
+            );
+          }
+          // fixed syllabus order first, unknown subjects after
+          final keys = [
+            ...SyllabusScreen.names.keys.where(subjects.containsKey),
+            ...subjects.keys.where((k) => !SyllabusScreen.names.containsKey(k)),
+          ];
+          return RefreshIndicator(
+            onRefresh: _reload,
+            child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(14),
             children: [
-              for (final entry in subjects.entries)
+              for (final entry in keys.map((k) => MapEntry(k, subjects[k]!)))
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
@@ -142,10 +127,10 @@ class _SyllabusScreenState extends State<SyllabusScreen> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(13),
                                 gradient: LinearGradient(
-                                    colors: SyllabusScreen._colors[entry.key] ?? const [Color(0xFF2E7D4F), Color(0xFF1F5C38)],
+                                    colors: _colors[entry.key] ?? const [Color(0xFF2E7D4F), Color(0xFF1F5C38)],
                                     begin: Alignment.topLeft, end: Alignment.bottomRight),
                               ),
-                              child: Icon(SyllabusScreen._icons[entry.key] ?? Icons.folder_open,
+                              child: Icon(_icons[entry.key] ?? Icons.folder_open,
                                   color: Colors.white, size: 24),
                             ),
                             const SizedBox(width: 14),
@@ -179,9 +164,8 @@ class _SyllabusScreenState extends State<SyllabusScreen> {
                   ),
                 ),
             ],
-          );
+          ));
         },
-        ),
       ),
     );
   }
