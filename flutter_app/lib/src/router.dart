@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'services/auth_service.dart';
 import 'ui/screens/login_screen.dart';
 import 'ui/screens/signup_screen.dart';
+import 'ui/screens/forgot_password_screen.dart';
 import 'ui/screens/dashboard_screen.dart';
 import 'ui/screens/syllabus_screen.dart';
 import 'ui/screens/question_list_screen.dart';
@@ -23,7 +24,7 @@ final router = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
     final loggedIn = await AuthService().isLoggedIn();
-    final onAuth = state.matchedLocation == '/login' || state.matchedLocation == '/signup';
+    final onAuth = state.matchedLocation == '/login' || state.matchedLocation == '/signup' || state.matchedLocation == '/forgot';
     if (!loggedIn && !onAuth) return '/login';
     if (loggedIn && onAuth) return '/dashboard';
     return null;
@@ -31,6 +32,7 @@ final router = GoRouter(
   routes: [
     GoRoute(path: '/login', builder: (c, s) => const LoginScreen()),
     GoRoute(path: '/signup', builder: (c, s) => const SignupScreen()),
+    GoRoute(path: '/forgot', builder: (c, s) => const ForgotPasswordScreen()),
     GoRoute(path: '/dashboard', builder: (c, s) => const DashboardScreen()),
     GoRoute(path: '/syllabus', builder: (c, s) => const SyllabusScreen()),
     GoRoute(path: '/question-bank', builder: (c, s) => const SyllabusScreen(bank: true)),
