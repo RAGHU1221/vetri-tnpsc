@@ -26,6 +26,16 @@ class AuthService {
     }
   }
 
+  Future<(bool, String)> forgotPassword(String mobile, String name, String newPassword) async {
+    try {
+      await _api.dio.post('/api/auth/forgot',
+          data: {'mobile': mobile, 'name': name, 'new_password': newPassword});
+      return (true, 'success');
+    } on DioException catch (e) {
+      return (false, (e.response?.data?['error'] as String?) ?? 'இணைப்பு பிழை / Connection error');
+    }
+  }
+
   Future<void> logout() => _api.clearToken();
   Future<bool> isLoggedIn() async => await _api.getToken() != null;
 }
