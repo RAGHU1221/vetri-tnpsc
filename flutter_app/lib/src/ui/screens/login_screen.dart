@@ -109,7 +109,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 26),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.push('/forgot'),
+                    child: const Text('கடவுச்சொல் மறந்துவிட்டதா? / Forgot password?',
+                        style: TextStyle(color: Color(0xFF2E7D4F), fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 VetriButton(
                   label: 'உள்நுழை / Login',
                   icon: Icons.arrow_forward_rounded,
